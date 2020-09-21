@@ -25,5 +25,6 @@ struct network_interfaces_manager {
     ping_record_store ping_store;
 
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
+
     void report_html();
 };

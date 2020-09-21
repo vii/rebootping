@@ -49,6 +49,7 @@ another within an hour so keep it disabled.
 
 ## Ideas for more work
 
+- Systemd script.
 - Datastore for history of pings and traffic statistics (RRD?).
 - User Interface showing active machines and graphs of traffic.
 - Graphs of ping times.

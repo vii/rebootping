@@ -32,14 +32,14 @@ enum class EtherType : uint16_t {
     IPv6 = 0x86DD,
 };
 enum class TCPFlags : uint8_t {
-FIN	= 0x01,
-SYN	= 0x02,
-RST	= 0x04,
-PUSH = 0x08,
-ACK	= 0x10,
-URG = 0x20,
-ECNECHO = 0x40,
-CWR = 0x80,
+    FIN = 0x01,
+    SYN = 0x02,
+    RST = 0x04,
+    PUSH = 0x08,
+    ACK = 0x10,
+    URG = 0x20,
+    ECNECHO = 0x40,
+    CWR = 0x80,
 };
 
 constexpr auto ETH_ALEN = 6;
@@ -90,41 +90,41 @@ std::ostream &operator<<(std::ostream &os, in_addr const &i);
 std::ostream &operator<<(std::ostream &os, sockaddr const &s);
 
 struct ether_header {
-    macaddr ether_dhost;    /* destination eth addr	*/
-    macaddr ether_shost;    /* source ether addr	*/
-    u_int16_t ether_type;                /* packet type ID field	*/
+    macaddr ether_dhost;
+    macaddr ether_shost;
+    u_int16_t ether_type;
 } __attribute__ ((__packed__));
 struct ip_header {
-    u_int8_t ip_vhl;        /* header length, version */
-    u_int8_t ip_tos;        /* type of service */
-    u_int16_t ip_len;        /* total length */
-    u_int16_t ip_id;        /* identification */
-    u_int16_t ip_off;        /* fragment offset field */
-    u_int8_t ip_ttl;        /* time to live */
-    u_int8_t ip_p;        /* protocol */
-    u_int16_t ip_sum;        /* checksum */
+    u_int8_t ip_vhl;
+    u_int8_t ip_tos;
+    u_int16_t ip_len;
+    u_int16_t ip_id;
+    u_int16_t ip_off;
+    u_int8_t ip_ttl;
+    u_int8_t ip_p;
+    u_int16_t ip_sum;
     struct in_addr ip_src, ip_dst;
 } __attribute__ ((__packed__));
 
 struct tcp_header {
-    u_int16_t	th_sport;		/* source port */
-    u_int16_t	th_dport;		/* destination port */
-    u_int32_t   th_seq;			/* sequence number */
-    u_int32_t   th_ack;			/* acknowledgement number */
-    u_int8_t	th_offx2;		/* data offset, rsvd */
-    u_int8_t	th_flags;
-    u_int16_t	th_win;			/* window */
-    u_int16_t	th_sum;			/* checksum */
-    u_int16_t	th_urp;			/* urgent pointer */
+    u_int16_t th_sport;
+    u_int16_t th_dport;
+    u_int32_t th_seq;
+    u_int32_t th_ack;
+    u_int8_t th_offx2;
+    u_int8_t th_flags;
+    u_int16_t th_win;
+    u_int16_t th_sum;
+    u_int16_t th_urp;
 } __attribute__ ((__packed__));
 
 struct icmp_header {
-    u_int8_t icmp_type;        /* type of message, see below */
-    u_int8_t icmp_code;        /* type sub code */
-    u_int16_t icmp_cksum;        /* ones complement cksum of struct */
+    u_int8_t icmp_type;
+    u_int8_t icmp_code;
+    u_int16_t icmp_cksum;
     union {
-        u_int8_t ih_pptr;            /* ICMP_PARAMPROB */
-        struct in_addr ih_gwaddr;    /* ICMP_REDIRECT */
+        u_int8_t ih_pptr;
+        struct in_addr ih_gwaddr;
         struct ih_idseq {
             u_int16_t icd_id;
             u_int16_t icd_seq;

@@ -93,9 +93,9 @@ struct ping_sender {
             std::numeric_limits<std::uint64_t>::max()
     };
     int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int) IPProtocol::ICMP);
-    ping_record_store& ping_store;
+    ping_record_store &ping_store;
 
-    ping_sender(ping_record_store& store):ping_store{store} {};
+    ping_sender(ping_record_store &store) : ping_store{store} {};
 
     ping_record create_ping_record(sockaddr const &dest_addr, std::string const &if_name) {
         ping_record record;
@@ -249,7 +249,7 @@ struct ping_health_decider {
 };
 
 template<typename Container>
-void ping_all_addresses(Container const &known_ifs, ping_record_store& ping_store, double now = now_unixtime()) {
+void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_store, double now = now_unixtime()) {
     auto const target_ping_ips = env("target_ping_ips", std::vector<std::string>{
             "8.8.8.8",
             "8.8.4.4",
@@ -313,7 +313,7 @@ int main() {
 
     network_interfaces_manager interfaces_manager;
     event_tracker.add_event({"rebootping_init"},
-                            {{"compilation_timestamp",__TIMESTAMP__}});
+                            {{"compilation_timestamp", __TIMESTAMP__}});
     auto last_dump_info_time = now_unixtime();
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
@@ -327,6 +327,6 @@ int main() {
         }
     }
     event_tracker.add_event({"rebootping_exit"},
-                            {{"global_exit_value",(double )global_exit_value}});
+                            {{"global_exit_value", (double) global_exit_value}});
     return global_exit_value;
 }

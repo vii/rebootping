@@ -1,7 +1,7 @@
 #include "network_interface_watcher.hpp"
 #include "make_unique_ptr_closer.hpp"
 
-network_interface_watcher::network_interface_watcher(std::string name, ping_record_store& store)
+network_interface_watcher::network_interface_watcher(std::string name, ping_record_store &store)
         : interface_name(std::move(name)),
           interface_thread(&network_interface_watcher::run_watcher_loop, this),
           ping_store{store} {
@@ -84,10 +84,10 @@ limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr
 void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     if (h->caplen >= sizeof(ether_header)) {
         auto ether = (ether_header *) bytes;
-        auto& source_dumper = dumper_for_macaddr(ether->ether_dhost);
-        source_dumper.pcap_dump_packet(h, bytes);
-        auto& dest_dumper = dumper_for_macaddr(ether->ether_shost);
+        auto &dest_dumper = dumper_for_macaddr(ether->ether_dhost);
+        auto &source_dumper = dumper_for_macaddr(ether->ether_shost);
         dest_dumper.pcap_dump_packet(h, bytes);
+        source_dumper.pcap_dump_packet(h, bytes);
 
         if (ntohs(ether->ether_type) == (uint16_t) EtherType::IPv4 &&
             h->caplen >= sizeof(ether_header) + sizeof(ip_header)) {
@@ -95,7 +95,7 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
                 std::lock_guard _{watcher_mutex};
                 source_dumper.note_ip_header(h, bytes);
             }
-            auto ip = *(ip_header const*)(bytes + sizeof(ether_header));
+            auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
             if (ip.ip_p == (uint8_t) IPProtocol::ICMP) {
                 ping_store.process_one_icmp_packet(h, bytes);

@@ -19,10 +19,11 @@ using event_tracker_value = std::variant<
         double,
         uint64_t
 >;
+
 struct event_tracker_contents : std::unordered_map<std::string, event_tracker_value> {
     double event_noticed_unixtime = now_unixtime(); // not necessarily the time the underlying activity happened
 
-    inline event_tracker_value const&operator[](std::string const&key) const {
+    inline event_tracker_value const &operator[](std::string const &key) const {
         auto i = find(key);
         if (i == end()) {
             throw std::runtime_error("unknown_event_tracker_contents_key " + key);
@@ -30,8 +31,9 @@ struct event_tracker_contents : std::unordered_map<std::string, event_tracker_va
         return i->second;
     }
 };
-inline std::ostream& operator<< (std::ostream& os, event_tracker_value const& val) {
-    std::visit([&](auto&&v) {
+
+inline std::ostream &operator<<(std::ostream &os, event_tracker_value const &val) {
+    std::visit([&](auto &&v) {
         os << v;
     }, val);
     return os;

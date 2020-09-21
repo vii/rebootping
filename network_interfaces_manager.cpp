@@ -3,7 +3,7 @@
 #include "make_unique_ptr_closer.hpp"
 #include "wire_layout.hpp"
 
-std::unordered_map <std::string, std::vector<sockaddr>> network_interfaces_manager::discover_known_ifs() {
+std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manager::discover_known_ifs() {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_if_t *alldevsp;
 
@@ -61,24 +61,26 @@ void network_interfaces_manager::report_html() {
 </head>
 <body>
 )";
-    for (auto&& [k,v]:watchers) {
+    for (auto&&[k, v]:watchers) {
         out << "<h1>" << k << "</h1>\n";
-        out << "<table class=pingtable><thead><tr><th>ping host</th><th>rtt seconds</th><th>age seconds</th></tr></thead><tbody>\n";
+        out
+                << "<table class=pingtable><thead><tr><th>ping host</th><th>rtt seconds</th><th>age seconds</th></tr></thead><tbody>\n";
         auto max_count = env("report_html_max_pings", 10000);
-        event_tracker.walk_key(str("icmp_echoreply if ",k),
-                               [&](event_tracker_contents const& contents) {
-            auto ping_recv_unixtime = std::get<double>(contents["ping_recv_unixtime"]);
-            auto ping_sent_unixtime = std::get<double>(contents["ping_sent_unixtime"]);
-            out << "<tr><td>" << contents["ping_dest_addr"] << "</td>"
-                << "<td>" << std::setprecision(4) << (ping_recv_unixtime-ping_sent_unixtime) << "</td>"
-                << "<td>" << std::setprecision(4) << (now-ping_recv_unixtime) << "</td>"
-                << "</tr>\n";
-            return --max_count > 0;
-        });
+        event_tracker.walk_key(str("icmp_echoreply if ", k),
+                               [&](event_tracker_contents const &contents) {
+                                   auto ping_recv_unixtime = std::get<double>(contents["ping_recv_unixtime"]);
+                                   auto ping_sent_unixtime = std::get<double>(contents["ping_sent_unixtime"]);
+                                   out << "<tr><td>" << contents["ping_dest_addr"] << "</td>"
+                                       << "<td>" << std::setprecision(4) << (ping_recv_unixtime - ping_sent_unixtime)
+                                       << "</td>"
+                                       << "<td>" << std::setprecision(4) << (now - ping_recv_unixtime) << "</td>"
+                                       << "</tr>\n";
+                                   return --max_count > 0;
+                               });
         out << "</tbody></table>\n";
 
         std::lock_guard _{v->watcher_mutex};
-        for (auto&& [mac, dumper]: v->interface_dumpers) {
+        for (auto&&[mac, dumper]: v->interface_dumpers) {
             dumper->report_html_dumper(mac, out);
         }
     }

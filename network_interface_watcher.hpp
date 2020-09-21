@@ -30,9 +30,9 @@ struct network_interface_watcher {
     std::string interface_name;
     std::thread interface_thread;
     std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_dumpers;
-    ping_record_store& ping_store;
+    ping_record_store &ping_store;
 
-    explicit network_interface_watcher(std::string name, ping_record_store& store);
+    explicit network_interface_watcher(std::string name, ping_record_store &store);
 
     void run_watcher_loop();
 
