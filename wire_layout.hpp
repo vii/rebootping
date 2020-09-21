@@ -56,6 +56,10 @@ struct macaddr {
         return as_num;
     }
 
+    inline uint32_t mac_manufacturer() const {
+        return (uint32_t)(as_number() >> 24);
+    }
+
     auto inline operator==(macaddr const &other) const {
         return as_number() == other.as_number();
     }
@@ -132,3 +136,7 @@ struct icmp_header {
         uint32_t ih_void;
     } icmp_hun;
 } __attribute__ ((__packed__));
+
+double origin_ip_address_score(ip_header const& ip);
+
+std::string oui_manufacturer_name(macaddr const& macaddr);

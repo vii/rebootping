@@ -67,6 +67,7 @@ void network_interface_watcher::open_and_process_packets() {
 limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr &ma) {
     std::lock_guard _{watcher_mutex};
     auto i = interface_dumpers.find(ma);
+    oui_manufacturer_name(ma);
     if (i == interface_dumpers.end()) {
         i = interface_dumpers.insert(
                 std::make_pair(

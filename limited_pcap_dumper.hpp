@@ -18,7 +18,7 @@ struct limited_pcap_dumper {
     pcap_dumper_t *pcap_dumper = nullptr;
     std::uintmax_t pcap_filesize = 0;
     in_addr_t guessed_ip = 0;
-    int guessed_ip_ttl = -1;
+    double guessed_ip_score = -1;
     std::unordered_set<uint16_t> answering_ports;
 
     bool can_write_bytes(uintmax_t len) {
@@ -34,17 +34,19 @@ struct limited_pcap_dumper {
     void note_ip_header(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
-        if (guessed_ip_ttl < ip.ip_ttl) {
+        double ip_score = origin_ip_address_score(ip);
+        if (ip_score >= guessed_ip_score) {
             guessed_ip = ip.ip_src.s_addr;
-            guessed_ip_ttl = ip.ip_ttl;
         }
+
         if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
             ip.ip_p == (uint8_t) IPProtocol::TCP) {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-            if (guessed_ip == ip.ip_src.s_addr &&
-                (tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
+            if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
                 == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
-                answering_ports.insert(ntohs(tcp.th_sport));
+                if (guessed_ip == ip.ip_src.s_addr) {
+                    answering_ports.insert(ntohs(tcp.th_sport));
+                }
             }
         }
     }
@@ -106,11 +108,12 @@ struct limited_pcap_dumper {
         std::string dns_str = ret ? gai_strerror(ret) : dns;
 
         out << "<h2>" << mac << " "
+            << oui_manufacturer_name(mac) << " "
             << sa.sin_addr << " "
             << dns_str
             << "</h2>\n";
         out << "<p><a href=\"" << pcap_filename << "\">pcap</a></p>\n";
-        in_addr my_addr;
+        in_addr my_addr{};
         my_addr.s_addr = guessed_ip;
         if (!answering_ports.empty()) {
             out << "<ul>\n";
