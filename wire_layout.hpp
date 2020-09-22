@@ -41,7 +41,7 @@ enum class TCPFlags : uint8_t {
     ECNECHO = 0x40,
     CWR = 0x80,
 };
-enum class ARPOperation : uint8_t  {
+enum class ARPOperation : uint16_t {
     ARP_WHO_HAS = 1,
     ARP_REPLY = 2,
 };
@@ -61,12 +61,13 @@ struct macaddr {
     }
 
     inline uint32_t mac_manufacturer() const {
-        return (uint32_t)(as_number() >> 24);
+        return (uint32_t) (as_number() >> 24);
     }
 
     auto inline operator==(macaddr const &other) const {
         return as_number() == other.as_number();
     }
+
     auto inline operator!=(macaddr const &other) const {
         return as_number() != other.as_number();
     }
@@ -156,6 +157,6 @@ struct arp_header {
     in_addr arp_tpa;
 } __attribute__ ((__packed__));
 
-double origin_ip_address_score(ip_header const& ip);
+double origin_ip_address_score(ip_header const &ip);
 
-std::string oui_manufacturer_name(macaddr const& macaddr);
+std::string oui_manufacturer_name(macaddr const &macaddr);

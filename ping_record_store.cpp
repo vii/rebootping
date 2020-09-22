@@ -66,8 +66,8 @@ event_tracker_contents ping_record_store::track_ping(const std::string &ping_typ
             },
             {
                     {"ping_start_unixtime", record.ping_start_unixtime},
-                    {"ping_sent_seconds",  record.ping_sent_unixtime-record.ping_start_unixtime},
-                    {"ping_recv_seconds",  record.ping_recv_unixtime-record.ping_start_unixtime},
+                    {"ping_sent_seconds",   record.ping_sent_unixtime - record.ping_start_unixtime},
+                    {"ping_recv_seconds",   record.ping_recv_unixtime - record.ping_start_unixtime},
                     {"ping_interface",      record.ping_interface},
                     {"ping_dest_addr",      str(record.ping_dest_addr)},
                     {"ping_type",           ping_type},

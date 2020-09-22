@@ -21,7 +21,7 @@ std::ostream &operator<<(std::ostream &os, const sockaddr &s) {
     }
 }
 
-double origin_ip_address_score(ip_header const& ip) {
+double origin_ip_address_score(ip_header const &ip) {
     switch (ip.ip_ttl) {
         // MS Windows starts ttl at 128, Linux and MacOS X at 64;
         // of course it is possible that an Internet host would set a higher ttl and then
@@ -32,7 +32,7 @@ double origin_ip_address_score(ip_header const& ip) {
         default:
             // the higher the better; could use popcount to find lowest number of bits
             // set - as people seem to like simple powers of two for defaults
-            return ip.ip_ttl/256.0;
+            return ip.ip_ttl / 256.0;
     }
 }
 
@@ -41,9 +41,10 @@ namespace {
         std::unordered_map<uint32_t, std::string> ret;
 
         auto stream = std::ifstream{env("oui_database_filename", "/var/lib/ieee-data/oui.txt")};
-        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)", std::regex::extended);
+        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)",
+                                             std::regex::extended);
 
-        for (std::string line; std::getline(stream, line); ) {
+        for (std::string line; std::getline(stream, line);) {
             std::smatch matches;
             if (!std::regex_match(line, matches, manufacturer_regex)) {
                 continue;
@@ -55,7 +56,7 @@ namespace {
     }
 }
 
-std::string oui_manufacturer_name(macaddr const& macaddr) {
+std::string oui_manufacturer_name(macaddr const &macaddr) {
     static auto oui_db = load_oui_db();
     auto i = oui_db.find(macaddr.mac_manufacturer());
     if (i == oui_db.end()) {

@@ -39,7 +39,8 @@ struct network_interface_watcher {
     void open_and_process_packets();
 
     limited_pcap_dumper &dumper_for_macaddr(macaddr const &ma);
-    limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const& ma);
+
+    limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const &ma);
 
     void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
 

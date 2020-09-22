@@ -31,8 +31,8 @@ struct limited_pcap_dumper {
     }
 
     void note_ip_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const& ether = *(ether_header const*)bytes;
-        auto const& ip = *(ip_header const *) (bytes + sizeof(ether_header));
+        auto const &ether = *(ether_header const *) bytes;
+        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
         if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
             ip.ip_p == (uint8_t) IPProtocol::TCP) {
@@ -40,22 +40,23 @@ struct limited_pcap_dumper {
             if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
                 == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
                 event_tracker.add_event(
-                        {str("tcp_accept ",ether.ether_shost), },
-                        {{"port",uint64_t(ntohs(tcp.th_sport))
-                        },{"ip_src",str(ip.ip_src)}}
-                        );
+                        {str("tcp_accept ", ether.ether_shost),},
+                        {{"port",   uint64_t(ntohs(tcp.th_sport))
+                         },
+                         {"ip_src", str(ip.ip_src)}}
+                );
             }
         }
     }
 
     void note_arp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const& ether = *(ether_header const*)bytes;
-        auto const& arp = *(arp_header const *) (bytes + sizeof(ether_header));
+        auto const &ether = *(ether_header const *) bytes;
+        auto const &arp = *(arp_header const *) (bytes + sizeof(ether_header));
 
-        if (arp.arp_oper != (uint8_t)ARPOperation::ARP_REPLY) {
+        if (ntohs(arp.arp_oper) != (uint16_t) ARPOperation::ARP_REPLY) {
             return;
         }
-        if (htons(arp.arp_ptype) != (uint16_t )EtherType::IPv4) {
+        if (ntohs(arp.arp_ptype) != (uint16_t) EtherType::IPv4) {
             return;
         }
         if (arp.arp_plen != sizeof(in_addr)) {
@@ -65,11 +66,12 @@ struct limited_pcap_dumper {
             return;
         }
         event_tracker.add_event(
-                {"arp_reply", str("arp_reply ",ether.ether_shost)},
-                                {{
-                                    "ip_s_addr", uint64_t{arp.arp_spa.s_addr}
-        },{"requestor",str(arp.arp_target)}}
-                                );
+                {"arp_reply", str("arp_reply ", ether.ether_shost)},
+                {{
+                         "ip_s_addr", uint64_t{arp.arp_spa.s_addr}
+                 },
+                 {       "requestor", str(arp.arp_target)}}
+        );
     }
 
 

@@ -68,11 +68,11 @@ void network_interfaces_manager::report_html() {
         auto max_count = env("report_html_max_pings", 10000);
         event_tracker.walk_key(str("icmp_echoreply if ", k),
                                [&](event_tracker_contents const &contents) {
-            auto ping_start_unixtime = std::get<double>(contents["ping_start_unixtime"]);
+                                   auto ping_start_unixtime = std::get<double>(contents["ping_start_unixtime"]);
                                    auto ping_recv_seconds = std::get<double>(contents["ping_recv_seconds"]);
                                    auto ping_sent_seconds = std::get<double>(contents["ping_sent_seconds"]);
                                    out << "<tr><td>" << contents["ping_dest_addr"] << "</td>"
-                                       << "<td>" << std::setprecision(4) << (ping_recv_seconds-ping_sent_seconds)
+                                       << "<td>" << std::setprecision(4) << (ping_recv_seconds - ping_sent_seconds)
                                        << "</td>"
                                        << "<td>" << std::setprecision(4) << (now - ping_start_unixtime) << "</td>"
                                        << "</tr>\n";
