@@ -85,22 +85,33 @@ limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr
 void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     if (h->caplen >= sizeof(ether_header)) {
         auto ether = (ether_header *) bytes;
-        auto &dest_dumper = dumper_for_macaddr(ether->ether_dhost);
+        auto dest_dumper = existing_dumper_for_macaddr(ether->ether_dhost);
         auto &source_dumper = dumper_for_macaddr(ether->ether_shost);
-        dest_dumper.pcap_dump_packet(h, bytes);
+        if (dest_dumper) {
+            dest_dumper->pcap_dump_packet(h, bytes);
+        }
         source_dumper.pcap_dump_packet(h, bytes);
 
-        if (ntohs(ether->ether_type) == (uint16_t) EtherType::IPv4 &&
+        switch (ntohs(ether->ether_type)) {
+            case (uint16_t) EtherType::IPv4:
+                if (
             h->caplen >= sizeof(ether_header) + sizeof(ip_header)) {
             {
                 std::lock_guard _{watcher_mutex};
-                source_dumper.note_ip_header(h, bytes);
+                source_dumper.note_ip_packet(h, bytes);
             }
             auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
             if (ip.ip_p == (uint8_t) IPProtocol::ICMP) {
                 ping_store.process_one_icmp_packet(h, bytes);
             }
+        }
+                break;
+            case (uint16_t) EtherType::ARP:
+                if (h->caplen >= sizeof(ether_header) + sizeof(arp_header)) {
+                    std::lock_guard _{watcher_mutex};
+                    source_dumper.note_arp_packet(h, bytes);
+                }
         }
     }
     if (interface_should_stop.load()) {
@@ -111,4 +122,13 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
 network_interface_watcher::~network_interface_watcher() {
     interface_should_stop.store(true);
     interface_thread.join();
+}
+
+limited_pcap_dumper *network_interface_watcher::existing_dumper_for_macaddr(const macaddr &ma) {
+    std::lock_guard _{watcher_mutex};
+    auto i = interface_dumpers.find(ma);
+    if (i == interface_dumpers.end()) {
+        return nullptr;
+    }
+    return i->second.get();
 }

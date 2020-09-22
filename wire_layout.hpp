@@ -41,6 +41,10 @@ enum class TCPFlags : uint8_t {
     ECNECHO = 0x40,
     CWR = 0x80,
 };
+enum class ARPOperation : uint8_t  {
+    ARP_WHO_HAS = 1,
+    ARP_REPLY = 2,
+};
 
 constexpr auto ETH_ALEN = 6;
 
@@ -62,6 +66,9 @@ struct macaddr {
 
     auto inline operator==(macaddr const &other) const {
         return as_number() == other.as_number();
+    }
+    auto inline operator!=(macaddr const &other) const {
+        return as_number() != other.as_number();
     }
 } __attribute__ ((__packed__));
 
@@ -135,6 +142,18 @@ struct icmp_header {
         } ih_idseq;
         uint32_t ih_void;
     } icmp_hun;
+} __attribute__ ((__packed__));
+
+struct arp_header {
+    u_int16_t arp_htype;
+    u_int16_t arp_ptype;
+    u_int8_t arp_hlen;
+    u_int8_t arp_plen;
+    u_int16_t arp_oper;
+    macaddr arp_sender;
+    in_addr arp_spa;
+    macaddr arp_target;
+    in_addr arp_tpa;
 } __attribute__ ((__packed__));
 
 double origin_ip_address_score(ip_header const& ip);

@@ -3,6 +3,8 @@
 #include "space_estimate_for_path.hpp"
 #include "env.hpp"
 #include "wire_layout.hpp"
+#include "event_tracker.hpp"
+#include "str.hpp"
 
 #include <pcap/pcap.h>
 #include <string>
@@ -17,9 +19,6 @@ struct limited_pcap_dumper {
     std::filesystem::path pcap_dir;
     pcap_dumper_t *pcap_dumper = nullptr;
     std::uintmax_t pcap_filesize = 0;
-    in_addr_t guessed_ip = 0;
-    double guessed_ip_score = -1;
-    std::unordered_set<uint16_t> answering_ports;
 
     bool can_write_bytes(uintmax_t len) {
         auto ret = pcap_filesize + len < env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024)
@@ -31,25 +30,48 @@ struct limited_pcap_dumper {
         return ret;
     }
 
-    void note_ip_header(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
-
-        double ip_score = origin_ip_address_score(ip);
-        if (ip_score >= guessed_ip_score) {
-            guessed_ip = ip.ip_src.s_addr;
-        }
+    void note_ip_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto const& ether = *(ether_header const*)bytes;
+        auto const& ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
         if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
             ip.ip_p == (uint8_t) IPProtocol::TCP) {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
             if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
                 == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
-                if (guessed_ip == ip.ip_src.s_addr) {
-                    answering_ports.insert(ntohs(tcp.th_sport));
-                }
+                event_tracker.add_event(
+                        {str("tcp_accept ",ether.ether_shost), },
+                        {{"port",uint64_t(ntohs(tcp.th_sport))
+                        },{"ip_src",str(ip.ip_src)}}
+                        );
             }
         }
     }
+
+    void note_arp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto const& ether = *(ether_header const*)bytes;
+        auto const& arp = *(arp_header const *) (bytes + sizeof(ether_header));
+
+        if (arp.arp_oper != (uint8_t)ARPOperation::ARP_REPLY) {
+            return;
+        }
+        if (htons(arp.arp_ptype) != (uint16_t )EtherType::IPv4) {
+            return;
+        }
+        if (arp.arp_plen != sizeof(in_addr)) {
+            return;
+        }
+        if (arp.arp_sender != ether.ether_shost) {
+            return;
+        }
+        event_tracker.add_event(
+                {"arp_reply", str("arp_reply ",ether.ether_shost)},
+                                {{
+                                    "ip_s_addr", uint64_t{arp.arp_spa.s_addr}
+        },{"requestor",str(arp.arp_target)}}
+                                );
+    }
+
 
     limited_pcap_dumper(pcap_t *pcap_session, std::string const &filename)
             : pcap_filename(filename),
@@ -99,26 +121,36 @@ struct limited_pcap_dumper {
     limited_pcap_dumper &operator=(limited_pcap_dumper const &) = delete;
 
     void report_html_dumper(macaddr const &mac, std::ostream &out) {
-        sockaddr_in sa;
-        std::memset(&sa, 0, sizeof(sa));
-        sa.sin_family = AF_INET;
-        sa.sin_addr.s_addr = guessed_ip;
-        char dns[1024];
-        auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
-        std::string dns_str = ret ? gai_strerror(ret) : dns;
+
+        std::string dns_str;
+
+        auto last_arp = event_tracker.last_event_for_key(str("arp_reply ", mac));
+        if (last_arp) {
+            sockaddr_in sa;
+            std::memset(&sa, 0, sizeof(sa));
+            sa.sin_family = AF_INET;
+            sa.sin_addr.s_addr = uint32_t(std::get<uint64_t>((*last_arp)["ip_s_addr"]));
+            char dns[1024];
+            auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
+            dns_str = ret ? gai_strerror(ret) : dns;
+        }
 
         out << "<h2>" << mac << " "
             << oui_manufacturer_name(mac) << " "
-            << sa.sin_addr << " "
             << dns_str
             << "</h2>\n";
         out << "<p><a href=\"" << pcap_filename << "\">pcap</a></p>\n";
-        in_addr my_addr{};
-        my_addr.s_addr = guessed_ip;
-        if (!answering_ports.empty()) {
+        std::unordered_map<uint64_t, uint64_t> count;
+        event_tracker.walk_key(str("tcp_accept ", mac), [&](auto &&accept) {
+            ++count[std::get<uint64_t>(accept["port"])];
+            return true;
+        });
+
+        if (!count.empty()) {
             out << "<ul>\n";
-            for (auto &&port:answering_ports) {
-                out << "\t<li><a href=\"http://" << my_addr << ":" << port << "\">" << port << "</a></li>\n";
+            for (auto&&[port, calls]:count) {
+                out << "\t<li>port <a href=\"http://" << dns_str << ":" << port << "\">" << port << "</a> accepted "
+                    << calls << " times</li>\n";
             }
             out << "</ul>\n";
         }

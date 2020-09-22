@@ -22,8 +22,6 @@ std::ostream &operator<<(std::ostream &os, const sockaddr &s) {
 }
 
 double origin_ip_address_score(ip_header const& ip) {
-    // Another way might be to look at ARP Who Has messages, as devices don't normally ask
-    // to be told back at a sender IP they don't have.
     switch (ip.ip_ttl) {
         // MS Windows starts ttl at 128, Linux and MacOS X at 64;
         // of course it is possible that an Internet host would set a higher ttl and then
@@ -43,7 +41,7 @@ namespace {
         std::unordered_map<uint32_t, std::string> ret;
 
         auto stream = std::ifstream{env("oui_database_filename", "/var/lib/ieee-data/oui.txt")};
-        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)(.+)", std::regex::extended);
+        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)", std::regex::extended);
 
         for (std::string line; std::getline(stream, line); ) {
             std::smatch matches;
