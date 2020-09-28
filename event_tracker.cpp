@@ -1,7 +1,7 @@
 #include <cmath>
 #include "event_tracker.hpp"
 
-struct event_tracker event_tracker;
+event_tracker global_event_tracker;
 
 event_tracker_contents event_tracker::add_event(std::unique_ptr<event_tracker_event> &&event_ptr) {
     event_tracker_event &event = *event_ptr;

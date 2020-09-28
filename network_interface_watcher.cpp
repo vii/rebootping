@@ -94,11 +94,13 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
 
         switch (ntohs(ether->ether_type)) {
             case (uint16_t) EtherType::IPv4:
-                if (
-                        h->caplen >= sizeof(ether_header) + sizeof(ip_header)) {
+                if (h->caplen >= sizeof(ether_header) + sizeof(ip_header)) {
                     {
                         std::lock_guard _{watcher_mutex};
-                        source_dumper.note_ip_packet(h, bytes);
+                        source_dumper.note_ip_packet_sent(h, bytes);
+                        if (dest_dumper) {
+                            dest_dumper->note_ip_packet_recv(h, bytes);
+                        }
                     }
                     auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
@@ -110,7 +112,7 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
             case (uint16_t) EtherType::ARP:
                 if (h->caplen >= sizeof(ether_header) + sizeof(arp_header)) {
                     std::lock_guard _{watcher_mutex};
-                    source_dumper.note_arp_packet(h, bytes);
+                    source_dumper.note_arp_packet_sent(h, bytes);
                 }
                 break;
         }

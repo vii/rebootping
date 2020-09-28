@@ -30,7 +30,21 @@ struct limited_pcap_dumper {
         return ret;
     }
 
-    void note_ip_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+    void note_ip_packet_recv(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto const &ether = *(ether_header const *) bytes;
+        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
+        if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header)
+            && ip.ip_p == (uint8_t) IPProtocol::UDP) {
+            auto udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
+            global_event_tracker.add_event(
+                    {str("udp_recv ", ether.ether_shost),},
+                    {{"port",   uint64_t(ntohs(udp.uh_dport))},
+                     {"ip_dst", str(ip.ip_dst)}}
+            );
+        }
+    }
+
+    void note_ip_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto const &ether = *(ether_header const *) bytes;
         auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
@@ -39,7 +53,7 @@ struct limited_pcap_dumper {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
             if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
                 == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
-                event_tracker.add_event(
+                global_event_tracker.add_event(
                         {str("tcp_accept ", ether.ether_shost),},
                         {{"port",   uint64_t(ntohs(tcp.th_sport))
                          },
@@ -49,7 +63,7 @@ struct limited_pcap_dumper {
         }
     }
 
-    void note_arp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+    void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto const &ether = *(ether_header const *) bytes;
         auto const &arp = *(arp_header const *) (bytes + sizeof(ether_header));
 
@@ -65,7 +79,7 @@ struct limited_pcap_dumper {
         if (arp.arp_sender != ether.ether_shost) {
             return;
         }
-        event_tracker.add_event(
+        global_event_tracker.add_event(
                 {"arp_reply", str("arp_reply ", ether.ether_shost)},
                 {{
                          "ip_s_addr", uint64_t{arp.arp_spa.s_addr}
@@ -126,7 +140,7 @@ struct limited_pcap_dumper {
 
         std::string dns_str;
 
-        auto last_arp = event_tracker.last_event_for_key(str("arp_reply ", mac));
+        auto last_arp = global_event_tracker.last_event_for_key(str("arp_reply ", mac));
         if (last_arp) {
             sockaddr_in sa;
             std::memset(&sa, 0, sizeof(sa));
@@ -142,19 +156,42 @@ struct limited_pcap_dumper {
             << dns_str
             << "</h2>\n";
         out << "<p><a href=\"" << pcap_filename << "\">pcap</a></p>\n";
-        std::unordered_map<uint64_t, uint64_t> count;
-        event_tracker.walk_key(str("tcp_accept ", mac), [&](auto &&accept) {
-            ++count[std::get<uint64_t>(accept["port"])];
+        std::unordered_map<uint64_t, uint64_t> tcp_accept;
+        global_event_tracker.walk_key(str("tcp_accept ", mac), [&](auto &&accept) {
+            ++tcp_accept[std::get<uint64_t>(accept["port"])];
             return true;
         });
 
-        if (!count.empty()) {
-            out << "<ul>\n";
-            for (auto&&[port, calls]:count) {
-                out << "\t<li>port <a href=\"http://" << dns_str << ":" << port << "\">" << port << "</a> accepted "
-                    << calls << " times</li>\n";
-            }
-            out << "</ul>\n";
+        out << "<ul>\n";
+        for (auto&&[port, calls]:tcp_accept) {
+            auto service = services_port_name(
+                    port,
+                    "tcp"
+            );
+            auto browser_service = service.empty() ? "http" : service;
+            out << "\t<li>tcp port <a href=\""
+                << browser_service
+                << "://" << dns_str << ":" << port << "\">" << port << " " << service << "</a> accepted "
+                << calls << " times</li>\n";
         }
+
+        std::unordered_map<uint64_t, uint64_t> udp_recv;
+        global_event_tracker.walk_key(str("udp_recv ", mac), [&](auto &&recv) {
+            ++udp_recv[std::get<uint64_t>(recv["port"])];
+            return true;
+        });
+        for (auto&&[port, calls]:udp_recv) {
+            if (calls < env("udp_recv_min_reported", 2)) {
+                continue;
+            }
+            auto service = services_port_name(
+                    port,
+                    "udp"
+            );
+            out << "\t<li>udp port " << port << " " << service << " received "
+                << calls << " times</li>\n";
+        }
+        out << "</ul>\n";
+
     }
 };

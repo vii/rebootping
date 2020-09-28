@@ -174,13 +174,13 @@ struct ping_health_decider {
             }
         }
 
-        event_tracker.add_event({"decide_health",
-                                 str("decide_health ", health_status)},
-                                {{"best_count",       best_count},
-                                 {"health_status",    health_status},
-                                 {"live_interfaces",  live_interfaces.size()},
-                                 {"using_interfaces", healthy_interfaces.size()},
-                                });
+        global_event_tracker.add_event({"decide_health",
+                                        str("decide_health ", health_status)},
+                                       {{"best_count",       best_count},
+                                        {"health_status",    health_status},
+                                        {"live_interfaces",  live_interfaces.size()},
+                                        {"using_interfaces", healthy_interfaces.size()},
+                                       });
 
 
         return healthy_interfaces;
@@ -203,10 +203,10 @@ struct ping_health_decider {
         std::unordered_map<std::string, double> healthy_to_last_unhealthy_time;
         for (auto &&i:live_interfaces) {
             auto unhealthy_key = str("interface_mark_unhealthy ", i);
-            auto last_disable_interface = event_tracker.last_event_for_key(unhealthy_key);
+            auto last_disable_interface = global_event_tracker.last_event_for_key(unhealthy_key);
             auto healthy = healthy_interfaces.find(i) != healthy_interfaces.end();
             if (!healthy) {
-                event_tracker.add_event(
+                global_event_tracker.add_event(
                         {"interface_mark_unhealthy", unhealthy_key},
                         {
                                 {"ping_interface",    i},
@@ -231,7 +231,7 @@ struct ping_health_decider {
                 break;
             }
             first_healthy = false;
-            event_tracker.add_event(
+            global_event_tracker.add_event(
                     {"interface_mark_healthy", str("interface_mark_healthy ", i)},
                     {
                             {"ping_interface",                 i},
@@ -256,9 +256,9 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
             "1.1.1.1",
             "1.0.0.1",
     });
-    auto last_ping_all_addresses = event_tracker.last_event_for_key("ping_all_addresses");
-    auto last_icmp_sent = event_tracker.last_event_for_key("icmp_echo");
-    auto current_ping_all_addresses = event_tracker.add_event(
+    auto last_ping_all_addresses = global_event_tracker.last_event_for_key("ping_all_addresses");
+    auto last_icmp_sent = global_event_tracker.last_event_for_key("icmp_echo");
+    auto current_ping_all_addresses = global_event_tracker.add_event(
             {"ping_all_addresses"},
             {
                     {"target_ping_ips", target_ping_ips.size()},
@@ -278,7 +278,7 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
             da.dest_addr.sin_family = AF_INET;
 
             for (auto &&dest:target_ping_ips) {
-                auto reply = event_tracker.last_event_for_key(str("icmp_echoreply to ", dest, " if ", if_name));
+                auto reply = global_event_tracker.last_event_for_key(str("icmp_echoreply to ", dest, " if ", if_name));
 
                 if (last_ping_all_addresses && reply &&
                     reply->event_noticed_unixtime >= last_ping_all_addresses->event_noticed_unixtime) {
@@ -312,8 +312,8 @@ int main() {
     signal(SIGTERM, signal_callback_handler);
 
     network_interfaces_manager interfaces_manager;
-    event_tracker.add_event({"rebootping_init"},
-                            {{"compilation_timestamp", __TIMESTAMP__}});
+    global_event_tracker.add_event({"rebootping_init"},
+                                   {{"compilation_timestamp", __TIMESTAMP__}});
     auto last_dump_info_time = now_unixtime();
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
@@ -326,7 +326,7 @@ int main() {
             interfaces_manager.report_html();
         }
     }
-    event_tracker.add_event({"rebootping_exit"},
-                            {{"global_exit_value", (double) global_exit_value}});
+    global_event_tracker.add_event({"rebootping_exit"},
+                                   {{"global_exit_value", (double) global_exit_value}});
     return global_exit_value;
 }

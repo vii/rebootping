@@ -57,7 +57,7 @@ size_t ping_record_store::add_ping_record(ping_record &&record) {
 }
 
 event_tracker_contents ping_record_store::track_ping(const std::string &ping_type, const ping_record &record) {
-    auto ret = event_tracker.add_event(
+    auto ret = global_event_tracker.add_event(
             {
                     ping_type,
                     str(ping_type, " to ", record.ping_dest_addr),

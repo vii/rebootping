@@ -64,3 +64,21 @@ std::string oui_manufacturer_name(macaddr const &macaddr) {
     }
     return i->second;
 }
+
+std::string services_port_name(int port, const std::string &proto) {
+    servent servbuf;
+    servent *result = nullptr;
+    char buffer[BUFSIZ];
+    auto ret = getservbyport_r(
+            port,
+            proto.c_str(),
+            &servbuf,
+            buffer,
+            sizeof(buffer),
+            &result
+    );
+    if (ret || !result) {
+        return {};
+    }
+    return result->s_name;
+}

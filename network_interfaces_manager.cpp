@@ -50,40 +50,72 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
     return known_ifs;
 }
 
+namespace {
+    void output_html_table_for_event_key(std::ostream &stream, std::string const &key, uint64_t max_count) {
+        bool header_output = false;
+        std::vector<std::string> column_names;
+
+        global_event_tracker.walk_key(key, [&](event_tracker_contents const &contents) {
+            if (!max_count--) {
+                return false;
+            }
+            if (!header_output) {
+                header_output = true;
+                stream << "<table class=rebootping_table><thead><tr>\n<th class=unixtime>event_noticed_unixtime</th>\n";
+                for (auto&&[k, _]:contents) {
+                    stream << "\t<th>" << k << "</th>\n";
+                    column_names.push_back(k);
+                }
+                stream << "</tr></thead><tbody>\n";
+            }
+            stream << "\t<tr>\n\t\t<td class=unixtime>" << std::setprecision(18) << contents.event_noticed_unixtime
+                   << "</td>\n";
+            for (auto &&c:column_names) {
+                stream << "\t\t<td>" << contents[c] << "</td>\n";
+            }
+            stream << "\t</tr>\n";
+            return true;
+        });
+
+        if (header_output) {
+            stream << "</tbody></table>\n";
+        }
+    }
+}
+
 void network_interfaces_manager::report_html() {
     std::ofstream out{env("output_html_dump_filename", "index.html")};
-    auto now = now_unixtime();
     out << R"(
 <html>
 <head>
-<title>rebootping</title>
-<link rel=stylesheet href="rebootping_style.css">
+    <title>rebootping</title>
+    <link rel=stylesheet href="rebootping_style.css">
+    <script type="text/javascript" src="rebootping_script.js"></script>
 </head>
 <body>
 )";
+    out << "<h1>Unhealthy events</h1>\n";
+
+    output_html_table_for_event_key(out, "interface_mark_unhealthy",
+                                    env("report_html_max_unhealthy", 1000));
+
+    out << "<h1>Pings</h1>\n";
+    output_html_table_for_event_key(
+            out,
+            "icmp_echoreply",
+            env("report_html_max_pings", 10000)
+    );
+
+
+    out << "<h1>Interfaces</h1>\n";
     for (auto&&[k, v]:watchers) {
-        out << "<h1>" << k << "</h1>\n";
-        out
-                << "<table class=pingtable><thead><tr><th>ping host</th><th>rtt seconds</th><th>age seconds</th></tr></thead><tbody>\n";
-        auto max_count = env("report_html_max_pings", 10000);
-        event_tracker.walk_key(str("icmp_echoreply if ", k),
-                               [&](event_tracker_contents const &contents) {
-                                   auto ping_start_unixtime = std::get<double>(contents["ping_start_unixtime"]);
-                                   auto ping_recv_seconds = std::get<double>(contents["ping_recv_seconds"]);
-                                   auto ping_sent_seconds = std::get<double>(contents["ping_sent_seconds"]);
-                                   out << "<tr><td>" << contents["ping_dest_addr"] << "</td>"
-                                       << "<td>" << std::setprecision(4) << (ping_recv_seconds - ping_sent_seconds)
-                                       << "</td>"
-                                       << "<td>" << std::setprecision(4) << (now - ping_start_unixtime) << "</td>"
-                                       << "</tr>\n";
-                                   return --max_count > 0;
-                               });
-        out << "</tbody></table>\n";
+        out << "<h2>" << k << "</h2>\n";
+
 
         std::lock_guard _{v->watcher_mutex};
         for (auto&&[mac, dumper]: v->interface_dumpers) {
             dumper->report_html_dumper(mac, out);
         }
     }
-    out << "</body>\n";
+    out << "<script>rebootping_process_html()</script>\n</body>\n";
 }

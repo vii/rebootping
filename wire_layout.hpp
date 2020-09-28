@@ -157,6 +157,15 @@ struct arp_header {
     in_addr arp_tpa;
 } __attribute__ ((__packed__));
 
+struct udp_header {
+    u_int16_t uh_sport;
+    u_int16_t uh_dport;
+    u_int16_t uh_len;
+    u_int16_t uh_sum;
+};
+
 double origin_ip_address_score(ip_header const &ip);
 
 std::string oui_manufacturer_name(macaddr const &macaddr);
+
+std::string services_port_name(int port, std::string const &proto /* tcp,udp */);

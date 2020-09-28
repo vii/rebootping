@@ -92,4 +92,4 @@ public:
     ~event_tracker();
 };
 
-extern event_tracker event_tracker;
+extern event_tracker global_event_tracker;
