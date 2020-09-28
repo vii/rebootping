@@ -36,11 +36,14 @@ struct limited_pcap_dumper {
         if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header)
             && ip.ip_p == (uint8_t) IPProtocol::UDP) {
             auto udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-            global_event_tracker.add_event(
-                    {str("udp_recv ", ether.ether_shost),},
-                    {{"port",   uint64_t(ntohs(udp.uh_dport))},
-                     {"ip_dst", str(ip.ip_dst)}}
-            );
+            auto port = ntohs(udp.uh_dport);
+            if (port < env("udp_recv_tracking_min_port", 10000)) {
+                global_event_tracker.add_event(
+                        {str("udp_recv ", ether.ether_shost),},
+                        {{"port",   uint64_t(port)},
+                         {"ip_dst", str(ip.ip_dst)}}
+                );
+            }
         }
     }
 
@@ -53,12 +56,15 @@ struct limited_pcap_dumper {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
             if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
                 == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
-                global_event_tracker.add_event(
-                        {str("tcp_accept ", ether.ether_shost),},
-                        {{"port",   uint64_t(ntohs(tcp.th_sport))
-                         },
-                         {"ip_src", str(ip.ip_src)}}
-                );
+                auto port = ntohs(tcp.th_sport);
+                if (port < env("tcp_recv_tracking_min_port", 30000)) {
+                    global_event_tracker.add_event(
+                            {str("tcp_accept ", ether.ether_shost),},
+                            {{"port",   uint64_t(port)
+                             },
+                             {"ip_src", str(ip.ip_src)}}
+                    );
+                }
             }
         }
     }
