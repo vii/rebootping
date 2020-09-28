@@ -34,14 +34,14 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
         auto const&[key, value] = item;
         return value->interface_has_stopped.load();
     });
-    for (auto&&[k, v]: watchers) {
+    for (auto const&[k, v]: watchers) {
         if (known_ifs.find(k) == known_ifs.end()) {
             v->interface_should_stop.store(true);
         } else {
             v->interface_should_stop.store(false);
         }
     }
-    for (auto&&[k, v]: known_ifs) {
+    for (auto const&[k, v]: known_ifs) {
         if (watchers.find(k) != watchers.end()) {
             continue;
         }
@@ -62,7 +62,7 @@ namespace {
             if (!header_output) {
                 header_output = true;
                 stream << "<table class=rebootping_table><thead><tr>\n<th class=unixtime>event_noticed_unixtime</th>\n";
-                for (auto&&[k, _]:contents) {
+                for (auto const&[k, _]:contents) {
                     stream << "\t<th>" << k << "</th>\n";
                     column_names.push_back(k);
                 }
@@ -115,12 +115,11 @@ void network_interfaces_manager::report_html() {
 
 
     out << "<h1>Interfaces</h1>\n";
-    for (auto&&[k, v]:watchers) {
+    for (auto const&[k, v]:watchers) {
         out << "<h2>" << k << "</h2>\n";
 
-
         std::lock_guard _{v->watcher_mutex};
-        for (auto&&[mac, dumper]: v->interface_dumpers) {
+        for (auto const&[mac, dumper]: v->interface_dumpers) {
             dumper->report_html_dumper(mac, out);
         }
     }

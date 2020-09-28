@@ -38,7 +38,7 @@ event_tracker::~event_tracker() {
 event_tracker::event_tracker() {}
 
 event_tracker_event::~event_tracker_event() {
-    for (auto&&[list, i]:event_iterators) {
+    for (auto const&[list, i]:event_iterators) {
         list->erase(i);
     }
     event_iterators.clear();
@@ -100,7 +100,7 @@ std::ostream &operator<<(std::ostream &os, const event_tracker_event &e) {
         first_key = false;
     }
     os << ']';
-    for (auto&&[k, v]:e) {
+    for (auto const&[k, v]:e) {
         os << ',';
         escape_json_string(os, k);
         os << ": ";

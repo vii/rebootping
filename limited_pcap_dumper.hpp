@@ -169,7 +169,7 @@ struct limited_pcap_dumper {
         });
 
         out << "<ul>\n";
-        for (auto&&[port, calls]:tcp_accept) {
+        for (auto const&[port, calls]:tcp_accept) {
             auto service = services_port_name(
                     port,
                     "tcp"
@@ -186,7 +186,7 @@ struct limited_pcap_dumper {
             ++udp_recv[std::get<uint64_t>(recv["port"])];
             return true;
         });
-        for (auto&&[port, calls]:udp_recv) {
+        for (auto const&[port, calls]:udp_recv) {
             if (calls < env("udp_recv_min_reported", 2)) {
                 continue;
             }

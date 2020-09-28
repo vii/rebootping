@@ -166,7 +166,7 @@ struct ping_health_decider {
     std::unordered_set<std::string> decide_health() {
         std::unordered_set<std::string> healthy_interfaces;
         uint64_t best_count = 0;
-        for (auto&&[k, v]:if_to_good_target) {
+        for (auto const&[k, v]:if_to_good_target) {
             best_count = std::max(best_count, v.size());
             if (v.size() == good_targets.size() && !good_targets.empty()) {
                 healthy_interfaces.insert(k);
@@ -281,7 +281,7 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
             });
 
     ping_sender sender{ping_store};
-    for (auto&&[if_name, addrs]:known_ifs) {
+    for (auto const&[if_name, addrs]:known_ifs) {
         if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) {
             continue;
         }
