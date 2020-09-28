@@ -99,6 +99,13 @@ void network_interfaces_manager::report_html() {
     output_html_table_for_event_key(out, "interface_mark_unhealthy",
                                     env("report_html_max_unhealthy", 1000));
 
+    out << "<h1>Lost pings</h1>\n";
+    output_html_table_for_event_key(
+            out,
+            "lost_ping",
+            env("report_html_max_lost_pings", 1000)
+    );
+
     out << "<h1>Pings</h1>\n";
     output_html_table_for_event_key(
             out,

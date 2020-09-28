@@ -20,6 +20,7 @@
 #include <random>
 #include <unistd.h>
 #include <csignal>
+#include <regex>
 
 namespace std {
     template<>
@@ -152,8 +153,15 @@ struct ping_sender {
 
 struct ping_health_decider {
     std::unordered_map<std::string, std::unordered_map<std::string, event_tracker_contents> > if_to_good_target;
-    std::unordered_set<std::string> good_targets;
+    std::unordered_map<std::string, uint64_t> good_targets;
     std::unordered_set<std::string> live_interfaces;
+    std::vector<std::string> const target_ping_ips = env("target_ping_ips", std::vector<std::string>{
+            "8.8.8.8",
+            "8.8.4.4",
+            "1.1.1.1",
+            "1.0.0.1",
+    });
+
 
     std::unordered_set<std::string> decide_health() {
         std::unordered_set<std::string> healthy_interfaces;
@@ -162,6 +170,17 @@ struct ping_health_decider {
             best_count = std::max(best_count, v.size());
             if (v.size() == good_targets.size() && !good_targets.empty()) {
                 healthy_interfaces.insert(k);
+            }
+            for (auto &&t:target_ping_ips) {
+                if (v.find(t) == v.end()) {
+                    global_event_tracker.add_event({"lost_ping",
+                                                    str("lost_ping ", k)},
+                                                   {{"ping_interface",   k},
+                                                    {"ping_dest_addr",   t},
+                                                    {"pings_successful", good_targets[t]}
+                                                   });
+
+                }
             }
         }
         auto health_status = std::string("healthy");
@@ -200,14 +219,14 @@ struct ping_health_decider {
             }
             return false;
         };
-        std::unordered_map<std::string, double> healthy_to_last_unhealthy_time;
+        std::unordered_map<std::string, double> interface_to_last_mark_unhealthy_time;
         for (auto &&i:live_interfaces) {
-            auto unhealthy_key = str("interface_mark_unhealthy ", i);
-            auto last_disable_interface = global_event_tracker.last_event_for_key(unhealthy_key);
+            auto mark_unhealthy_key = str("interface_mark_unhealthy ", i);
+            auto last_disable_interface = global_event_tracker.last_event_for_key(mark_unhealthy_key);
             auto healthy = healthy_interfaces.find(i) != healthy_interfaces.end();
             if (!healthy) {
                 global_event_tracker.add_event(
-                        {"interface_mark_unhealthy", unhealthy_key},
+                        {"interface_mark_unhealthy", mark_unhealthy_key},
                         {
                                 {"ping_interface",    i},
                                 {"if_to_good_target", if_to_good_target[i].size()},
@@ -215,29 +234,30 @@ struct ping_health_decider {
                         });
                 write_unhealthy(i, true);
             } else {
-                healthy_to_last_unhealthy_time[i] = last_disable_interface
-                                                    ? last_disable_interface->event_noticed_unixtime
-                                                    : -std::numeric_limits<double>::max();
+                interface_to_last_mark_unhealthy_time[i] = last_disable_interface
+                                                           ? last_disable_interface->event_noticed_unixtime
+                                                           : std::nan("");
             }
         }
         std::vector<std::string> healthy_sorted{healthy_interfaces.begin(), healthy_interfaces.end()};
         std::sort(healthy_sorted.begin(), healthy_sorted.end(), [&](auto &&a, auto &&b) {
-            return healthy_to_last_unhealthy_time[a] < healthy_to_last_unhealthy_time[b];
+            return interface_to_last_mark_unhealthy_time[a] < interface_to_last_mark_unhealthy_time[b];
         });
         bool first_healthy = true;
         for (auto &&i:healthy_sorted) {
             if (!first_healthy &&
-                healthy_to_last_unhealthy_time[i] > now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
+                !(interface_to_last_mark_unhealthy_time[i] >=
+                  now - env("wait_before_mark_interface_healthy_seconds", 3600.0))) {
                 break;
             }
             first_healthy = false;
             global_event_tracker.add_event(
                     {"interface_mark_healthy", str("interface_mark_healthy ", i)},
                     {
-                            {"ping_interface",                 i},
-                            {"if_to_good_target",              if_to_good_target[i].size()},
-                            {"good_targets",                   good_targets.size()},
-                            {"healthy_to_last_unhealthy_time", healthy_to_last_unhealthy_time[i]},
+                            {"ping_interface",           i},
+                            {"if_to_good_target",        if_to_good_target[i].size()},
+                            {"good_targets",             good_targets.size()},
+                            {"last_mark_unhealthy_time", interface_to_last_mark_unhealthy_time[i]},
                     });
 
             write_unhealthy(i, false);
@@ -250,24 +270,21 @@ struct ping_health_decider {
 
 template<typename Container>
 void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_store, double now = now_unixtime()) {
-    auto const target_ping_ips = env("target_ping_ips", std::vector<std::string>{
-            "8.8.8.8",
-            "8.8.4.4",
-            "1.1.1.1",
-            "1.0.0.1",
-    });
+    ping_health_decider health_decider;
     auto last_ping_all_addresses = global_event_tracker.last_event_for_key("ping_all_addresses");
     auto last_icmp_sent = global_event_tracker.last_event_for_key("icmp_echo");
     auto current_ping_all_addresses = global_event_tracker.add_event(
             {"ping_all_addresses"},
             {
-                    {"target_ping_ips", target_ping_ips.size()},
+                    {"target_ping_ips", health_decider.target_ping_ips.size()},
                     {"known_ifs",       known_ifs.size()},
             });
 
-    ping_health_decider health_decider;
     ping_sender sender{ping_store};
     for (auto&&[if_name, addrs]:known_ifs) {
+        if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) {
+            continue;
+        }
         health_decider.live_interfaces.insert(if_name);
         for (sockaddr const &src_addr: addrs) {
             union {
@@ -277,13 +294,13 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
             std::memset(&da, 0, sizeof(da));
             da.dest_addr.sin_family = AF_INET;
 
-            for (auto &&dest:target_ping_ips) {
+            for (auto &&dest:health_decider.target_ping_ips) {
                 auto reply = global_event_tracker.last_event_for_key(str("icmp_echoreply to ", dest, " if ", if_name));
 
                 if (last_ping_all_addresses && reply &&
                     reply->event_noticed_unixtime >= last_ping_all_addresses->event_noticed_unixtime) {
                     health_decider.if_to_good_target[if_name][dest] = reply.value();
-                    health_decider.good_targets.insert(dest);
+                    ++health_decider.good_targets[dest];
                 }
 
                 CALL_ERRNO_BAD_VALUE(inet_pton, 0, AF_INET, dest.c_str(), &da.dest_addr.sin_addr);
