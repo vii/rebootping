@@ -70,7 +70,7 @@ std::string services_port_name(int port, const std::string &proto) {
     servent *result = nullptr;
     char buffer[BUFSIZ];
     auto ret = getservbyport_r(
-            port,
+            htons(port),
             proto.c_str(),
             &servbuf,
             buffer,

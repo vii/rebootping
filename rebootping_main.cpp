@@ -286,6 +286,7 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
             continue;
         }
         health_decider.live_interfaces.insert(if_name);
+        health_decider.if_to_good_target[if_name]; // force creation
         for (sockaddr const &src_addr: addrs) {
             union {
                 sockaddr_in dest_addr;

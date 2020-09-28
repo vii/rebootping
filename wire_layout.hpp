@@ -162,7 +162,7 @@ struct udp_header {
     u_int16_t uh_dport;
     u_int16_t uh_len;
     u_int16_t uh_sum;
-};
+} __attribute__ ((__packed__));
 
 double origin_ip_address_score(ip_header const &ip);
 
