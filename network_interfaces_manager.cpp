@@ -110,7 +110,7 @@ void network_interfaces_manager::report_html() {
     output_html_table_for_event_key(
             out,
             "icmp_echoreply",
-            env("report_html_max_pings", 10000)
+            env("report_html_max_pings", 20000)
     );
 
 

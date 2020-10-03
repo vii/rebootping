@@ -306,7 +306,9 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
 
                 CALL_ERRNO_BAD_VALUE(inet_pton, 0, AF_INET, dest.c_str(), &da.dest_addr.sin_addr);
                 try {
-                    sender.send_ping(src_addr, da.dest_sockaddr, if_name);
+                    for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
+                        sender.send_ping(src_addr, da.dest_sockaddr, if_name);
+                    }
                 } catch (std::exception const &e) {
                     std::cerr << "cannot ping on " << if_name << ": " << e.what() << std::endl;
                 }
