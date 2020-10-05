@@ -169,3 +169,5 @@ double origin_ip_address_score(ip_header const &ip);
 std::string oui_manufacturer_name(macaddr const &macaddr);
 
 std::string services_port_name(int port, std::string const &proto /* tcp,udp */);
+
+sockaddr sockaddr_from_string(std::string const&src, sa_family_t sin_family=AF_INET);

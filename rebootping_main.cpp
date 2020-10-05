@@ -1,4 +1,3 @@
-#include "limited_pcap_dumper.hpp"
 #include "now.hpp"
 #include "event_tracker.hpp"
 #include "file_contents_cache.hpp"
@@ -6,6 +5,7 @@
 #include "network_interfaces_manager.hpp"
 #include "wire_layout.hpp"
 #include "ping_record_store.hpp"
+#include "call_errno.hpp"
 
 #include <pcap/pcap.h>
 
@@ -35,37 +35,6 @@ namespace std {
             return ret;
         }
     };
-}
-
-struct errno_exception : public std::exception {
-    errno_exception(int err, const std::string &syscall) : caught_errno(err) {
-        std::ostringstream oss;
-        oss << syscall << " " << std::strerror(err);
-        message = oss.str();
-    }
-
-    int caught_errno;
-    std::string message;
-
-    [[nodiscard]] const char *what() const noexcept override {
-        return message.c_str();
-    }
-};
-
-#define CALL_ERRNO_BAD_VALUE(name, bad_value, ...) \
-    call_errno_bad_value([&]{ return name(__VA_ARGS__);}, #name, bad_value)
-#define CALL_ERRNO_MINUS_1(name, ...) \
-    CALL_ERRNO_BAD_VALUE(name, -1, __VA_ARGS__)
-
-template<typename Function>
-inline auto call_errno_bad_value(Function const &f, char const *name, decltype(f()) bad_value) -> decltype(f()) {
-    auto ret = f();
-    if (ret == bad_value) {
-        throw errno_exception(
-                errno,
-                name);
-    }
-    return ret;
 }
 
 
@@ -288,13 +257,6 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
         health_decider.live_interfaces.insert(if_name);
         health_decider.if_to_good_target[if_name]; // force creation
         for (sockaddr const &src_addr: addrs) {
-            union {
-                sockaddr_in dest_addr;
-                sockaddr dest_sockaddr;
-            } da;
-            std::memset(&da, 0, sizeof(da));
-            da.dest_addr.sin_family = AF_INET;
-
             for (auto &&dest:health_decider.target_ping_ips) {
                 auto reply = global_event_tracker.last_event_for_key(str("icmp_echoreply to ", dest, " if ", if_name));
 
@@ -304,10 +266,11 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
                     ++health_decider.good_targets[dest];
                 }
 
-                CALL_ERRNO_BAD_VALUE(inet_pton, 0, AF_INET, dest.c_str(), &da.dest_addr.sin_addr);
+                auto dest_sockaddr = sockaddr_from_string(dest);
+
                 try {
                     for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
-                        sender.send_ping(src_addr, da.dest_sockaddr, if_name);
+                        sender.send_ping(src_addr, dest_sockaddr, if_name);
                     }
                 } catch (std::exception const &e) {
                     std::cerr << "cannot ping on " << if_name << ": " << e.what() << std::endl;

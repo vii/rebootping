@@ -1,5 +1,6 @@
 #include "wire_layout.hpp"
 #include "env.hpp"
+#include "call_errno.hpp"
 #include <fstream>
 #include <regex>
 
@@ -81,4 +82,15 @@ std::string services_port_name(int port, const std::string &proto) {
         return {};
     }
     return result->s_name;
+}
+
+sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family) {
+    union {
+        sockaddr_in dest_addr;
+        sockaddr dest_sockaddr;
+    } da;
+    std::memset(&da, 0, sizeof(da));
+    da.dest_addr.sin_family = sin_family;
+    CALL_ERRNO_BAD_VALUE(inet_pton, 0, da.dest_addr.sin_family, src.c_str(), &da.dest_addr.sin_addr);
+    return da.dest_sockaddr;
 }

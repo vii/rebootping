@@ -9,7 +9,7 @@ list(APPEND CXX_FLAGS "-ggdb" "-O2" "-Wall")
 find_package(PCAP REQUIRED)
 find_package(Threads)
 
-add_library(rebootping_lib limited_pcap_dumper.hpp env.hpp space_estimate_for_path.cpp space_estimate_for_path.hpp file_contents_cache.cpp file_contents_cache.hpp event_tracker.cpp event_tracker.hpp now.hpp str.hpp network_interface_watcher.cpp network_interface_watcher.hpp wire_layout.hpp ping_record_store.cpp ping_record_store.hpp wire_layout.cpp network_interface_watcher.cpp network_interfaces_manager.cpp network_interfaces_manager.hpp make_unique_ptr_closer.hpp)
+add_library(rebootping_lib limited_pcap_dumper.hpp env.hpp space_estimate_for_path.cpp space_estimate_for_path.hpp file_contents_cache.cpp file_contents_cache.hpp event_tracker.cpp event_tracker.hpp now.hpp str.hpp network_interface_watcher.cpp network_interface_watcher.hpp wire_layout.hpp ping_record_store.cpp ping_record_store.hpp wire_layout.cpp network_interface_watcher.cpp network_interfaces_manager.cpp network_interfaces_manager.hpp make_unique_ptr_closer.hpp call_errno.hpp)
 
 add_executable(rebootping rebootping_main.cpp)
 

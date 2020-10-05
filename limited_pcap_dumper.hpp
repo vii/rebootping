@@ -87,10 +87,10 @@ struct limited_pcap_dumper {
         }
         global_event_tracker.add_event(
                 {"arp_reply", str("arp_reply ", ether.ether_shost)},
-                {{
-                         "ip_s_addr", uint64_t{arp.arp_spa.s_addr}
-                 },
-                 {       "requestor", str(arp.arp_target)}}
+                {
+                    {"ip_src", str(arp.arp_spa)},
+                    {"requestor", str(arp.arp_target)},
+                }
         );
     }
 
@@ -143,17 +143,14 @@ struct limited_pcap_dumper {
     limited_pcap_dumper &operator=(limited_pcap_dumper const &) = delete;
 
     void report_html_dumper(macaddr const &mac, std::ostream &out) {
-
         std::string dns_str;
 
         auto last_arp = global_event_tracker.last_event_for_key(str("arp_reply ", mac));
         if (last_arp) {
-            sockaddr_in sa;
-            std::memset(&sa, 0, sizeof(sa));
-            sa.sin_family = AF_INET;
-            sa.sin_addr.s_addr = uint32_t(std::get<uint64_t>((*last_arp)["ip_s_addr"]));
+            auto const ip_src = std::get<std::string>((*last_arp)["ip_src"]);
+            auto sockaddr = sockaddr_from_string(ip_src);
             char dns[1024];
-            auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
+            auto ret = getnameinfo((struct sockaddr *) &sockaddr, sizeof(sockaddr), dns, sizeof(dns), 0, 0, 0);
             dns_str = ret ? gai_strerror(ret) : dns;
         }
 
