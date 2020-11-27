@@ -4,8 +4,8 @@
 #include <sstream>
 #include <vector>
 
-template <typename T>
-inline T env_convert_default(T&& default_value, char const* given) {
+template<typename T>
+inline T env_convert_default(T &&default_value, char const *given) {
     T ret;
     auto is = std::istringstream{given};
     is >> ret;
@@ -15,8 +15,8 @@ inline T env_convert_default(T&& default_value, char const* given) {
     return ret;
 }
 
-template <>
-inline std::string env_convert_default(std::string&& default_value, char const*given) {
+template<>
+inline std::string env_convert_default(std::string &&default_value, char const *given) {
     return given;
 }
 
@@ -26,7 +26,7 @@ inline T env(char const *var, T default_value) {
     if (!given) {
         return default_value;
     }
-    return env_convert_default(std::move(default_value),given);
+    return env_convert_default(std::move(default_value), given);
 }
 
 inline std::string env(char const *var, char const *default_value) {

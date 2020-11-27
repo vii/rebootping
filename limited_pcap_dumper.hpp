@@ -88,8 +88,8 @@ struct limited_pcap_dumper {
         global_event_tracker.add_event(
                 {"arp_reply", str("arp_reply ", ether.ether_shost)},
                 {
-                    {"ip_src", str(arp.arp_spa)},
-                    {"requestor", str(arp.arp_target)},
+                        {"ip_src",    str(arp.arp_spa)},
+                        {"requestor", str(arp.arp_target)},
                 }
         );
     }

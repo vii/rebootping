@@ -170,4 +170,4 @@ std::string oui_manufacturer_name(macaddr const &macaddr);
 
 std::string services_port_name(int port, std::string const &proto /* tcp,udp */);
 
-sockaddr sockaddr_from_string(std::string const&src, sa_family_t sin_family=AF_INET);
+sockaddr sockaddr_from_string(std::string const &src, sa_family_t sin_family = AF_INET);
