@@ -10,11 +10,12 @@ Rebootping monitors locally connected devices and manages multiple ISP Internet 
 ## Internet connection selection algorithm
 
 Repeatedly
+
 - count successful ping replies since last send for each interface
 - send new pings to all hosts from all interfaces
 - mark interfaces unhealthy that do not have the best count of ping replies
-- mark at least one interface healthy that has the best count of ping replies, 
-and enable others if they have been healthy for one hour
+- mark at least one interface healthy that has the best count of ping replies, and enable others if they have been
+  healthy for one hour
 - commit healthy and unhealthy choices to shorewall (if changes made)
 - sleep for 1s
 
@@ -36,13 +37,13 @@ return $status
 
 When an interface is unhealthy, its status is set to 1.
 
-This means no more new outgoing connections will be masqueraded over the link. 
-Connections marked for the link will still try to use it.
+This means no more new outgoing connections will be masqueraded over the link. Connections marked for the link will
+still try to use it.
 
 ## Design starting points
 
 - Network model: he network links are over-provisioned but have occasional glitches; if a glitch happens we expect
-another within an hour so keep it disabled.
+  another within an hour so keep it disabled.
 - Cheap to capture all traffic as even with gigabit links, CPU load is load.
 - Few dependencies (libpcap, shorewall).
 - Make context available for decisions.

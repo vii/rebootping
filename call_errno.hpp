@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cerrno>
-#include <string>
-#include <sstream>
 #include <cstring>
+#include <sstream>
+#include <string>
 
 struct errno_exception : public std::exception {
     errno_exception(int err, const std::string &syscall) : caught_errno(err) {
@@ -21,7 +21,7 @@ struct errno_exception : public std::exception {
 };
 
 #define CALL_ERRNO_BAD_VALUE(name, bad_value, ...) \
-    call_errno_bad_value([&]{ return name(__VA_ARGS__);}, #name, bad_value)
+    call_errno_bad_value([&] { return name(__VA_ARGS__); }, #name, bad_value)
 #define CALL_ERRNO_MINUS_1(name, ...) \
     CALL_ERRNO_BAD_VALUE(name, -1, __VA_ARGS__)
 

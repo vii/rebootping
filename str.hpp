@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
 #include <sstream>
+#include <string>
 
-template<typename ...Args>
+template<typename... Args>
 inline std::string str(Args &&...args) {
     std::ostringstream oss;
     (oss << ... << args);

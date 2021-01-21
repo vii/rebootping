@@ -1,16 +1,16 @@
 #pragma once
 
-#include "space_estimate_for_path.hpp"
 #include "env.hpp"
-#include "wire_layout.hpp"
 #include "event_tracker.hpp"
+#include "space_estimate_for_path.hpp"
 #include "str.hpp"
+#include "wire_layout.hpp"
 
-#include <pcap/pcap.h>
-#include <string>
+#include <atomic>
 #include <filesystem>
 #include <iostream>
-#include <atomic>
+#include <pcap/pcap.h>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -21,28 +21,38 @@ struct limited_pcap_dumper {
     std::uintmax_t pcap_filesize = 0;
 
     bool can_write_bytes(uintmax_t len) {
-        auto ret = pcap_filesize + len < env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024)
-                   && space_estimate_for_path(pcap_dir, len) >=
-                      env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024);
+        auto ret = pcap_filesize + len < env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024) && space_estimate_for_path(pcap_dir, len) >=
+                                                                                                                 env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024);
         if (ret) {
             pcap_filesize += len;
         }
         return ret;
     }
 
+    void note_dns_udp_packet_recv(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto const &ether = *(ether_header const *) bytes;
+        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
+        auto const &udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
+        auto const &dns = *(dns_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header));
+    }
+
+
     void note_ip_packet_recv(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto const &ether = *(ether_header const *) bytes;
         auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
-        if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header)
-            && ip.ip_p == (uint8_t) IPProtocol::UDP) {
+        if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) && ip.ip_p == (uint8_t) IPProtocol::UDP) {
             auto udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
             auto port = ntohs(udp.uh_dport);
             if (port < env("udp_recv_tracking_min_port", 10000)) {
                 global_event_tracker.add_event(
-                        {str("udp_recv ", ether.ether_shost),},
-                        {{"port",   uint64_t(port)},
-                         {"ip_dst", str(ip.ip_dst)}}
-                );
+                        {
+                                str("udp_recv ", ether.ether_shost),
+                        },
+                        {{"port", uint64_t(port)},
+                         {"ip_dst", str(ip.ip_dst)}});
+            }
+            if (ntohs(udp.uh_sport) == 53 && h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) + sizeof(dns_header)) {
+                note_dns_udp_packet_recv(h, bytes);
             }
         }
     }
@@ -54,16 +64,15 @@ struct limited_pcap_dumper {
         if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
             ip.ip_p == (uint8_t) IPProtocol::TCP) {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-            if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK))
-                == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
+            if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
                 auto port = ntohs(tcp.th_sport);
                 if (port < env("tcp_recv_tracking_min_port", 30000)) {
                     global_event_tracker.add_event(
-                            {str("tcp_accept ", ether.ether_shost),},
-                            {{"port",   uint64_t(port)
-                             },
-                             {"ip_src", str(ip.ip_src)}}
-                    );
+                            {
+                                    str("tcp_accept ", ether.ether_shost),
+                            },
+                            {{"port", uint64_t(port)},
+                             {"ip_src", str(ip.ip_src)}});
                 }
             }
         }
@@ -88,16 +97,15 @@ struct limited_pcap_dumper {
         global_event_tracker.add_event(
                 {"arp_reply", str("arp_reply ", ether.ether_shost)},
                 {
-                        {"ip_src",    str(arp.arp_spa)},
+                        {"ip_src", str(arp.arp_spa)},
                         {"requestor", str(arp.arp_target)},
-                }
-        );
+                });
     }
 
 
     limited_pcap_dumper(pcap_t *pcap_session, std::string const &filename)
-            : pcap_filename(filename),
-              pcap_dir(std::filesystem::absolute(std::filesystem::path(filename)).parent_path()) {
+        : pcap_filename(filename),
+          pcap_dir(std::filesystem::absolute(std::filesystem::path(filename)).parent_path()) {
         std::error_code file_size_check_error;
         auto size = std::filesystem::file_size(pcap_filename, file_size_check_error);
         if (!file_size_check_error) {
@@ -154,9 +162,9 @@ struct limited_pcap_dumper {
             dns_str = ret ? gai_strerror(ret) : dns;
         }
 
-        out << "<h2>" << mac << " "
+        out << "<h2>" << maybe_obfuscate_address(mac) << " "
             << oui_manufacturer_name(mac) << " "
-            << dns_str
+            << maybe_obfuscate_address(dns_str)
             << "</h2>\n";
         out << "<p><a href=\"" << pcap_filename << "\">pcap</a></p>\n";
         std::unordered_map<uint64_t, uint64_t> tcp_accept;
@@ -166,11 +174,10 @@ struct limited_pcap_dumper {
         });
 
         out << "<ul>\n";
-        for (auto const&[port, calls]:tcp_accept) {
+        for (auto const &[port, calls] : tcp_accept) {
             auto service = services_port_name(
                     port,
-                    "tcp"
-            );
+                    "tcp");
             auto browser_service = service.empty() ? "http" : service;
             out << "\t<li>tcp port <a href=\""
                 << browser_service
@@ -183,18 +190,16 @@ struct limited_pcap_dumper {
             ++udp_recv[std::get<uint64_t>(recv["port"])];
             return true;
         });
-        for (auto const&[port, calls]:udp_recv) {
+        for (auto const &[port, calls] : udp_recv) {
             if (calls < env("udp_recv_min_reported", 2)) {
                 continue;
             }
             auto service = services_port_name(
                     port,
-                    "udp"
-            );
+                    "udp");
             out << "\t<li>udp port " << port << " " << service << " received "
                 << calls << " times</li>\n";
         }
         out << "</ul>\n";
-
     }
 };

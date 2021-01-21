@@ -1,6 +1,7 @@
 #include "wire_layout.hpp"
-#include "env.hpp"
 #include "call_errno.hpp"
+#include "flat_env.hpp"
+#include "str.hpp"
 #include <fstream>
 #include <regex>
 
@@ -41,7 +42,7 @@ namespace {
     std::unordered_map<uint32_t, std::string> load_oui_db() {
         std::unordered_map<uint32_t, std::string> ret;
 
-        auto stream = std::ifstream{env("oui_database_filename", "/var/lib/ieee-data/oui.txt")};
+        auto stream = std::ifstream{flat_env::oui_database_filename()};
         auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)",
                                              std::regex::extended);
 
@@ -55,7 +56,7 @@ namespace {
 
         return ret;
     }
-}
+}// namespace
 
 std::string oui_manufacturer_name(macaddr const &macaddr) {
     static auto oui_db = load_oui_db();
@@ -76,8 +77,7 @@ std::string services_port_name(int port, const std::string &proto) {
             &servbuf,
             buffer,
             sizeof(buffer),
-            &result
-    );
+            &result);
     if (ret || !result) {
         return {};
     }
@@ -93,4 +93,13 @@ sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family) {
     da.dest_addr.sin_family = sin_family;
     CALL_ERRNO_BAD_VALUE(inet_pton, 0, da.dest_addr.sin_family, src.c_str(), &da.dest_addr.sin_addr);
     return da.dest_sockaddr;
+}
+
+std::string maybe_obfuscate_address_string(std::string_view address) {
+    auto reveal_prefix = flat_env::obfuscate_address_reveal_prefix();
+    if (flat_env::obfuscate_address() && address.size() > reveal_prefix) {
+        return str(address.substr(0, reveal_prefix), "...");
+    } else {
+        return std::string{address};
+    }
 }

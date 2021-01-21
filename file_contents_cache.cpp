@@ -1,10 +1,10 @@
 #include "file_contents_cache.hpp"
 
-#include <unordered_map>
-#include <fstream>
-#include <sstream>
-#include <mutex>
 #include <filesystem>
+#include <fstream>
+#include <mutex>
+#include <sstream>
+#include <unordered_map>
 
 
 bool file_contents_cache_write(std::string const &filename, std::string const &contents) {

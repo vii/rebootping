@@ -4,30 +4,29 @@ namespace {
     double timeval_to_unixtime(timeval const &tv) {
         return tv.tv_sec + tv.tv_usec / 1e6;
     }
-}
+}// namespace
 
 ping_record *ping_record_store::process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-    if (h->caplen < sizeof(rebootping_ether_packet)) {
+    auto packet = rebootping_ether_packet::header_from_packet(bytes, h->caplen);
+    if (!packet) {
         return nullptr;
     }
-    auto packet = (rebootping_ether_packet const *) bytes;
-    if (ntohs(packet->packet_ether.ether_type) != (uint16_t) EtherType::IPv4) {
+    if (ntohs(packet->ether_type) != (uint16_t) EtherType::IPv4) {
         return nullptr;
     }
-    if (packet->packet_ip.ip_p != (uint8_t) IPProtocol::ICMP) {
+    if (packet->ip_p != (uint8_t) IPProtocol::ICMP) {
         return nullptr;
     }
-    auto const &payload = packet->packet.packet_payload;
-    if (payload.rebootping_slot >= ping_records.size()) {
+    if (packet->rebootping_slot >= ping_records.size()) {
         return nullptr;
     }
-    auto &record = ping_records[payload.rebootping_slot];
-    if (payload.rebootping_cookie != record.ping_cookie) {
+    auto &record = ping_records[packet->rebootping_slot];
+    if (packet->rebootping_cookie != record.ping_cookie) {
         return nullptr;
     }
-    auto ping_type = str("icmp_", packet->packet.packet_icmp.icmp_type);
+    auto ping_type = str("icmp_", packet->icmp_type);
 
-    switch (packet->packet.packet_icmp.icmp_type) {
+    switch (packet->icmp_type) {
         case (uint8_t) ICMPType::ECHO:
             record.ping_sent_unixtime = timeval_to_unixtime(h->ts);
             ping_type = "icmp_echo";
@@ -66,13 +65,12 @@ event_tracker_contents ping_record_store::track_ping(const std::string &ping_typ
             },
             {
                     {"ping_start_unixtime", record.ping_start_unixtime},
-                    {"ping_sent_seconds",   record.ping_sent_unixtime - record.ping_start_unixtime},
-                    {"ping_recv_seconds",   record.ping_recv_unixtime - record.ping_start_unixtime},
-                    {"ping_interface",      record.ping_interface},
-                    {"ping_dest_addr",      str(record.ping_dest_addr)},
-                    {"ping_type",           ping_type},
-            }
-    );
+                    {"ping_sent_seconds", record.ping_sent_unixtime - record.ping_start_unixtime},
+                    {"ping_recv_seconds", record.ping_recv_unixtime - record.ping_start_unixtime},
+                    {"ping_interface", record.ping_interface},
+                    {"ping_dest_addr", str(record.ping_dest_addr)},
+                    {"ping_type", ping_type},
+            });
 
     return ret;
 }

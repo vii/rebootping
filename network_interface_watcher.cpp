@@ -2,9 +2,9 @@
 #include "make_unique_ptr_closer.hpp"
 
 network_interface_watcher::network_interface_watcher(std::string name, ping_record_store &store)
-        : interface_name(std::move(name)),
-          interface_thread(&network_interface_watcher::run_watcher_loop, this),
-          ping_store{store} {
+    : interface_name(std::move(name)),
+      interface_thread(&network_interface_watcher::run_watcher_loop, this),
+      ping_store{store} {
 }
 
 void network_interface_watcher::run_watcher_loop() {
@@ -21,7 +21,7 @@ void network_interface_watcher::open_and_process_packets() {
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),
-            10 * 1024, //sizeof(rebootping_ether_packet) /* snaplen */,
+            10 * 1024,//sizeof(rebootping_ether_packet) /* snaplen */,
             1 /* promiscuous */,
             1 /* packet buffer timeout in ms; allows buffering up to 1ms of packets. See https://www.tcpdump.org/manpages/pcap.3pcap.html */,
             errbuf);
@@ -55,8 +55,7 @@ void network_interface_watcher::open_and_process_packets() {
                 [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
                     ((network_interface_watcher *) user)->process_one_packet(h, bytes);
                 },
-                (u_char *) this
-        );
+                (u_char *) this);
         if (ret == -1) {
             std::cerr << "pcap_loop " << interface_name << " " << pcap_geterr(interface_pcap) << std::endl;
             break;
@@ -70,14 +69,12 @@ limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr
     oui_manufacturer_name(ma);
     if (i == interface_dumpers.end()) {
         i = interface_dumpers.insert(
-                std::make_pair(
-                        ma,
-                        std::make_unique<limited_pcap_dumper>(
-                                interface_pcap,
-                                str("dump_", interface_name, "_", ma, ".pcap")
-                        )
-                )
-        ).first;
+                                     std::make_pair(
+                                             ma,
+                                             std::make_unique<limited_pcap_dumper>(
+                                                     interface_pcap,
+                                                     str("dump_", interface_name, "_", ma, ".pcap"))))
+                    .first;
     }
     return *i->second;
 }

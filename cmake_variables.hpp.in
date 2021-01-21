@@ -1,0 +1,4 @@
+#pragma once
+
+#define flat_git_sha_string "@flat_git_sha_string@"
+double constexpr flat_git_unixtime = @flat_git_unixtime@;

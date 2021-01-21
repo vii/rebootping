@@ -1,27 +1,26 @@
 #pragma once
 
 #include "env.hpp"
-#include "now.hpp"
+#include "now_unixtime.hpp"
 
-#include <unordered_map>
-#include <string>
-#include <variant>
-#include <vector>
-#include <unordered_set>
-#include <mutex>
+#include <iomanip>
+#include <iostream>
 #include <list>
 #include <memory>
-#include <iostream>
-#include <iomanip>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <variant>
+#include <vector>
 
 using event_tracker_value = std::variant<
         std::string,
         double,
-        uint64_t
->;
+        uint64_t>;
 
 struct event_tracker_contents : std::unordered_map<std::string, event_tracker_value> {
-    double event_noticed_unixtime = now_unixtime(); // not necessarily the time the underlying activity happened
+    double event_noticed_unixtime = now_unixtime();// not necessarily the time the underlying activity happened
 
     inline event_tracker_value const &operator[](std::string const &key) const {
         auto i = find(key);
@@ -35,7 +34,8 @@ struct event_tracker_contents : std::unordered_map<std::string, event_tracker_va
 inline std::ostream &operator<<(std::ostream &os, event_tracker_value const &val) {
     std::visit([&](auto &&v) {
         os << v;
-    }, val);
+    },
+               val);
     return os;
 }
 
@@ -44,8 +44,7 @@ struct event_tracker_event : event_tracker_contents {
     std::vector<std::pair<std::list<event_tracker_event *> *, std::list<event_tracker_event *>::iterator>> event_iterators;
 
     event_tracker_event(std::initializer_list<std::string> keys,
-                        std::initializer_list<event_tracker_contents::value_type> contents
-    );
+                        std::initializer_list<event_tracker_contents::value_type> contents);
 
     event_tracker_event(event_tracker_event const &) = delete;
 
@@ -57,10 +56,11 @@ struct event_tracker_event : event_tracker_contents {
 std::ostream &operator<<(std::ostream &os, event_tracker_event const &e);
 
 class event_tracker {
-    std::list<std::unique_ptr<event_tracker_event> > event_by_age;
+    std::list<std::unique_ptr<event_tracker_event>> event_by_age;
     std::mutex event_mutex;
 
-    std::unordered_map<std::string, std::list<event_tracker_event *> > event_by_key;
+    std::unordered_map<std::string, std::list<event_tracker_event *>> event_by_key;
+
 public:
     event_tracker();
 
@@ -71,8 +71,7 @@ public:
     event_tracker_contents add_event(std::unique_ptr<event_tracker_event> &&event_ptr);
 
     inline event_tracker_contents add_event(std::initializer_list<std::string> keys,
-                                            std::initializer_list<event_tracker_contents::value_type> contents
-    ) {
+                                            std::initializer_list<event_tracker_contents::value_type> contents) {
         return add_event(std::make_unique<event_tracker_event>(keys, contents));
     }
 
@@ -80,7 +79,7 @@ public:
     inline void walk_key(std::string const &key, Walker w) {
         std::lock_guard _{event_mutex};
 
-        for (auto &&e:event_by_key[key]) {
+        for (auto &&e : event_by_key[key]) {
             if (!w(*e)) {
                 return;
             }

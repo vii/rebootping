@@ -1,7 +1,7 @@
-#include <fstream>
 #include "network_interfaces_manager.hpp"
 #include "make_unique_ptr_closer.hpp"
 #include "wire_layout.hpp"
+#include <fstream>
 
 std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manager::discover_known_ifs() {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -31,17 +31,17 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
         }
     }
     std::erase_if(watchers, [](auto const &item) {
-        auto const&[key, value] = item;
+        auto const &[key, value] = item;
         return value->interface_has_stopped.load();
     });
-    for (auto const&[k, v]: watchers) {
+    for (auto const &[k, v] : watchers) {
         if (known_ifs.find(k) == known_ifs.end()) {
             v->interface_should_stop.store(true);
         } else {
             v->interface_should_stop.store(false);
         }
     }
-    for (auto const&[k, v]: known_ifs) {
+    for (auto const &[k, v] : known_ifs) {
         if (watchers.find(k) != watchers.end()) {
             continue;
         }
@@ -62,7 +62,7 @@ namespace {
             if (!header_output) {
                 header_output = true;
                 stream << "<table class=rebootping_table><thead><tr>\n<th class=unixtime>event_noticed_unixtime</th>\n";
-                for (auto const&[k, _]:contents) {
+                for (auto const &[k, _] : contents) {
                     stream << "\t<th>" << k << "</th>\n";
                     column_names.push_back(k);
                 }
@@ -70,7 +70,7 @@ namespace {
             }
             stream << "\t<tr>\n\t\t<td class=unixtime>" << std::setprecision(18) << contents.event_noticed_unixtime
                    << "</td>\n";
-            for (auto &&c:column_names) {
+            for (auto &&c : column_names) {
                 stream << "\t\t<td>" << contents[c] << "</td>\n";
             }
             stream << "\t</tr>\n";
@@ -81,7 +81,7 @@ namespace {
             stream << "</tbody></table>\n";
         }
     }
-}
+}// namespace
 
 void network_interfaces_manager::report_html() {
     std::ofstream out{env("output_html_dump_filename", "index.html")};
@@ -103,23 +103,21 @@ void network_interfaces_manager::report_html() {
     output_html_table_for_event_key(
             out,
             "lost_ping",
-            env("report_html_max_lost_pings", 1000)
-    );
+            env("report_html_max_lost_pings", 1000));
 
     out << "<h1>Pings</h1>\n";
     output_html_table_for_event_key(
             out,
             "icmp_echoreply",
-            env("reporert_html_max_pings", 20000)
-    );
+            env("report_html_max_pings", 20000));
 
 
     out << "<h1>Interfaces</h1>\n";
-    for (auto const&[k, v]:watchers) {
+    for (auto const &[k, v] : watchers) {
         out << "<h2>" << k << "</h2>\n";
 
         std::lock_guard _{v->watcher_mutex};
-        for (auto const&[mac, dumper]: v->interface_dumpers) {
+        for (auto const &[mac, dumper] : v->interface_dumpers) {
             dumper->report_html_dumper(mac, out);
         }
     }

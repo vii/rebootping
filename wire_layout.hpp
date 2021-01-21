@@ -1,18 +1,19 @@
 #pragma once
 
+#include "str.hpp"
 #include <pcap/pcap.h>
 
-#include <iostream>
-#include <thread>
-#include <unordered_map>
 #include <atomic>
+#include <cmath>
+#include <csignal>
+#include <cstring>
+#include <iostream>
+#include <random>
+#include <thread>
+#include <unistd.h>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <cstring>
-#include <cmath>
-#include <random>
-#include <unistd.h>
-#include <csignal>
 
 
 enum class IPProtocol : uint8_t {
@@ -53,7 +54,7 @@ struct macaddr {
 
     [[nodiscard]] inline uint64_t as_number() const {
         uint64_t as_num = 0;
-        for (auto c:mac_bytes) {
+        for (auto c : mac_bytes) {
             as_num <<= 8;
             as_num += c;
         }
@@ -61,7 +62,7 @@ struct macaddr {
     }
 
     inline uint32_t mac_manufacturer() const {
-        return (uint32_t) (as_number() >> 24);
+        return (uint32_t)(as_number() >> 24);
     }
 
     auto inline operator==(macaddr const &other) const {
@@ -71,13 +72,13 @@ struct macaddr {
     auto inline operator!=(macaddr const &other) const {
         return as_number() != other.as_number();
     }
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 
 inline std::ostream &operator<<(std::ostream &os, macaddr const &m) {
     const char *hex_digits = "0123456789abcdef";
     bool first = true;
-    for (auto c:m.mac_bytes) {
+    for (auto c : m.mac_bytes) {
         if (!first) {
             os << ":";
         }
@@ -94,10 +95,9 @@ namespace std {
             return std::hash<uint64_t>()(ma.as_number());
         }
     };
-}
+}// namespace std
 
 std::ostream &operator<<(std::ostream &os, in_addr const &i);
-
 
 std::ostream &operator<<(std::ostream &os, sockaddr const &s);
 
@@ -105,8 +105,9 @@ struct ether_header {
     macaddr ether_dhost;
     macaddr ether_shost;
     u_int16_t ether_type;
-} __attribute__ ((__packed__));
-struct ip_header {
+} __attribute__((__packed__));
+
+struct alignas(u_int16_t) ip_header {
     u_int8_t ip_vhl;
     u_int8_t ip_tos;
     u_int16_t ip_len;
@@ -116,9 +117,9 @@ struct ip_header {
     u_int8_t ip_p;
     u_int16_t ip_sum;
     struct in_addr ip_src, ip_dst;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
-struct tcp_header {
+struct alignas(u_int16_t) tcp_header {
     u_int16_t th_sport;
     u_int16_t th_dport;
     u_int32_t th_seq;
@@ -128,9 +129,9 @@ struct tcp_header {
     u_int16_t th_win;
     u_int16_t th_sum;
     u_int16_t th_urp;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
-struct icmp_header {
+struct alignas(u_int16_t) icmp_header {
     u_int8_t icmp_type;
     u_int8_t icmp_code;
     u_int16_t icmp_cksum;
@@ -143,9 +144,9 @@ struct icmp_header {
         } ih_idseq;
         uint32_t ih_void;
     } icmp_hun;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
-struct arp_header {
+struct alignas(u_int16_t) arp_header {
     u_int16_t arp_htype;
     u_int16_t arp_ptype;
     u_int8_t arp_hlen;
@@ -155,14 +156,34 @@ struct arp_header {
     in_addr arp_spa;
     macaddr arp_target;
     in_addr arp_tpa;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
-struct udp_header {
+struct alignas(u_int16_t) udp_header {
     u_int16_t uh_sport;
     u_int16_t uh_dport;
     u_int16_t uh_len;
     u_int16_t uh_sum;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
+
+struct alignas(u_int16_t) dns_header {
+    u_int16_t dns_id;
+    u_int16_t dns_flags;
+    u_int16_t dns_questions;
+    u_int16_t dns_answers;
+    u_int16_t dns_authorities;
+    u_int16_t dns_additional;
+} __attribute__((__packed__));
+
+template<typename... packet_types>
+struct wire_header : packet_types... {
+    template<typename pointer>
+    static wire_header<packet_types...> const *header_from_packet(pointer *bytes, size_t caplen) {
+        if (sizeof(wire_header<packet_types...>) < caplen) {
+            return nullptr;
+        }
+        return reinterpret_cast<wire_header<packet_types...> const *>(bytes);
+    }
+};
 
 double origin_ip_address_score(ip_header const &ip);
 
@@ -171,3 +192,10 @@ std::string oui_manufacturer_name(macaddr const &macaddr);
 std::string services_port_name(int port, std::string const &proto /* tcp,udp */);
 
 sockaddr sockaddr_from_string(std::string const &src, sa_family_t sin_family = AF_INET);
+
+std::string maybe_obfuscate_address_string(std::string_view address);
+
+template<typename address_type>
+inline std::string maybe_obfuscate_address(address_type &&a) {
+    return maybe_obfuscate_address_string(str(a));
+}

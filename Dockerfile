@@ -7,7 +7,7 @@ ARG SSH_KEY_ARG=
 ENV DEBIAN_FRONTEND=noninteractive
 RUN perl -pi -e 's/# deb-src/deb-src/' /etc/apt/sources.list
 RUN apt-get update && apt-get install -qy \
-    cmake g++ \
+    cmake g++ git \
     build-essential \
     tar python tzdata \
     libpcap0.8-dev \
