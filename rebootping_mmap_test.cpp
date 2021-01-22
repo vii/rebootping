@@ -10,6 +10,14 @@
 #include <vector>
 
 std::vector<std::pair<std::string, std::function<void()>>> rebootping_tests;
+std::vector<std::string> rebootping_test_failures;
+
+template<typename... arg_types>
+void rebootping_test_fail(arg_types&& ...args) {
+    auto s = str(args...);
+    std::cout << "rebootping_test_fail " << s << std::endl;
+    rebootping_test_failures.push_back(std::string{s});
+}
 
 #define TEST(suite_name, test_name)                                                                                                                     \
     void suite_name##_##test_name();                                                                                                                    \
@@ -47,13 +55,15 @@ TEST(flat_hash_suite, hash_instantiate) {
 }
 
 TEST(flat_hash_suite, hash_ints) {
-
-    for (unsigned count = 1; count < 1024 * 1024 * 1024; count *= 19) {
+    for (unsigned count = 1; count < 1024 * 1024; count *= 19) {
         tmpdir tmpdir;
 
-        auto hash = flat_hash<uint64_t, uint64_t>(tmpdir.tmpdir_name + "/hash_ints_test.flatmap");
+        auto filename = tmpdir.tmpdir_name + "/hash_ints_test.flatmap";
+        auto hash = flat_hash<uint64_t, uint64_t>(filename);
         for (unsigned n = 0; count > n; ++n) {
-            assert(!hash.hash_find_key(n));
+            if(hash.hash_find_key(n)) {
+                rebootping_test_fail("hash_find_key",n);
+            }
         }
 
         auto h = [](unsigned n) { return ~n * 17 + n * -13; };
@@ -65,6 +75,18 @@ TEST(flat_hash_suite, hash_ints) {
             assert(*hash.hash_find_key(n) == h(n));
         }
         assert(!hash.hash_find_key(count));
+
+        auto reopen = flat_hash<uint64_t, uint64_t>(filename);
+        ++reopen.hash_header().flat_hash_version;
+
+        try {
+            auto reopen_again = flat_hash<uint64_t, uint64_t>(filename);
+            rebootping_test_fail("corrupt flat_hash_header version not checked");
+        } catch (std::exception const &e) {
+            if (std::string(e.what()).find("flat_hash_version") == std::string::npos) {
+                rebootping_test_fail(str("flat_hash_suite hash_ints flat_hash_version wrongly ok ", e.what()));
+            }
+        }
     }
 }
 
@@ -234,6 +256,46 @@ TEST(flat_records, check_serialisation) {
     assert(reopen == expected);
 }
 
+TEST(flat_records, reopen_versions) {
+    tmpdir tmpdir;
+    all_kinds_records test_records{tmpdir.tmpdir_name};
+    std::string const timeshard_name = "20210120";
+    test_records.add_flat_record(timeshard_name, [&](auto &&i) {
+        flat_record_apply_per_field([&](
+                                            auto &&field,
+                                            auto &&record) {
+            field.flat_field_value(record) = row_generator_all_kinds_records(0, field, field.flat_field_value(record));
+        },
+                                    i);
+    });
+    auto reopened = all_kinds_records{tmpdir.tmpdir_name};
+    auto serialised = string_serialise_records(reopened);
+    assert(serialised.size() > 10);
+    flat_mmap main_mmap{str(tmpdir.tmpdir_name, "/", timeshard_name, "/flat_timeshard_main.flatmap")};
+    ++main_mmap.mmap_cast<flat_timeshard_header>(0).flat_timeshard_version;
+    try {
+        all_kinds_records{tmpdir.tmpdir_name};
+        rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_version no failure"));
+    } catch (std::exception const &e) {
+        if (std::string(e.what()).find("flat_timeshard_version") == std::string::npos) {
+            rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_version wrongly ok ", e.what()));
+        }
+    }
+
+    --main_mmap.mmap_cast<flat_timeshard_header>(0).flat_timeshard_version;
+
+    main_mmap.mmap_cast<flat_timeshard_header>(0).flat_timeshard_magic = 0xdeadbeaf;
+    try {
+        all_kinds_records{tmpdir.tmpdir_name};
+        rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_magic no failure"));
+    } catch (std::exception const &e) {
+        if (std::string(e.what()).find("flat_timeshard_magic") == std::string::npos) {
+            rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_magic missing ", e.what()));
+        }
+    }
+}
+
+
 TEST(flat_records, all_values) {
     test_flat_read_write<all_kinds_records>("all_values", row_generator_all_kinds_records, 7);
 }
@@ -304,17 +366,13 @@ TEST(flat_records, all_numbers) {
     test_flat_read_write<all_numbers_records>(
             "numeric_limits_max", [](uint64_t row_num, auto &&field, auto &&value) {
                 using field_type = std::decay_t<decltype(value)>;
-                return
-
-                        std::numeric_limits<field_type>::max();
+                return std::numeric_limits<field_type>::max();
             },
             919);
     test_flat_read_write<all_numbers_records>(
             "numeric_limits_min", [](uint64_t row_num, auto &&field, auto &&value) {
                 using field_type = std::decay_t<decltype(value)>;
-                return
-
-                        std::numeric_limits<field_type>::min();
+                return std::numeric_limits<field_type>::min();
             },
             2047);
 }
@@ -325,5 +383,13 @@ int main() {
         std::cout << "rebooting_running_test " << name << std::endl;
         f();
         std::cout << "rebootping_test_done " << name << std::endl;
+        if (!rebootping_test_failures.empty()) {
+            break;
+        }
     }
+    if (!rebootping_test_failures.empty()) {
+        std::cerr << "rebootping_test_failures " << rebootping_test_failures.size() << std::endl;
+        return 17;
+    }
+    return 0;
 }

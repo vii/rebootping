@@ -76,10 +76,9 @@ struct flat_dirtree {
             }
             std::filesystem::create_directories(flat_dir + "/" + std::string(timeshard_name));
             i = insert_new_timeshard(timeshard_name);
-            i->second->timeshard_reset_header();
         }
         auto &timeshard = *i->second;
-        auto index = timeshard.timeshard_header_ref().flat_index_next;
+        auto index = timeshard.timeshard_header_ref().flat_timeshard_index_next;
         timeshard.flat_timeshard_ensure_mmapped(index);
 
         f(timeshard_iterator_type{&timeshard, index});
@@ -106,7 +105,7 @@ struct flat_dirtree {
         flat_dirtree_iterator &operator++() {
             ++flat_iterator_index;
 
-            if (flat_iterator_index >= outer_iterator->timeshard_header_ref().flat_index_next) {
+            if (flat_iterator_index >= outer_iterator->timeshard_header_ref().flat_timeshard_index_next) {
                 flat_iterator_index = 0;
                 ++outer_iterator;
             }

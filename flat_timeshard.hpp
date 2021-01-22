@@ -5,16 +5,17 @@
 #include "flat_macro.hpp"
 #include "flat_mmap.hpp"
 #include "now_unixtime.hpp"
+#include "str.hpp"
 
 struct flat_timeshard_header {
-    uint64_t flat_file_magic = 0x666c61746d6d6170;
-    uint64_t flat_file_version = 2020122100;
-    double flat_git_timestamp = flat_git_timestamp;
-    uint8_t flat_git_sha_string_array[128] = flat_git_sha_string;
-    double flat_create_timestamp = now_unixtime();
+    uint64_t flat_timeshard_magic = 0x666c61746d6d6170;
+    uint64_t flat_timeshard_version = 202012210000;
+    double flat_timeshard_git_unixtime = flat_git_unixtime;
+    uint8_t flat_timeshard_git_sha_string_array[128] = flat_git_sha_string;
+    double flat_timeshard_create_unixtime = now_unixtime();
 
-    uint64_t flat_index_next = 0;
-    uint64_t flat_bytes_start_next = sizeof(flat_timeshard_header);
+    uint64_t flat_timeshard_index_next = 0;
+    uint64_t flat_timeshard_bytes_start_next = sizeof(flat_timeshard_header);
     // TODO: allow all fields to have min/max and monotonic flag
 };
 
@@ -24,6 +25,17 @@ struct flat_timeshard {
 
     flat_timeshard(std::string_view timeshard_name, std::string_view dir, flat_mmap_settings const &settings)
         : flat_timeshard_name(timeshard_name), flat_timeshard_main_mmap(std::string{dir} + "/flat_timeshard_main.flatmap", settings) {
+        if (!flat_timeshard_main_mmap.mmap_allocated_len()) {
+            flat_timeshard_main_mmap.mmap_allocate_at_least(sizeof(timeshard_header_ref()));
+            timeshard_header_ref() = flat_timeshard_header();
+        }
+        flat_timeshard_header highest_supported_version;
+        if (highest_supported_version.flat_timeshard_magic != timeshard_header_ref().flat_timeshard_magic) {
+            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ",dir));
+        }
+        if (timeshard_header_ref().flat_timeshard_version > highest_supported_version.flat_timeshard_version) {
+            throw std::runtime_error(str("flat_timeshard_version too new: dir ",dir," at ", timeshard_header_ref().flat_timeshard_version, ">",highest_supported_version.flat_timeshard_version));
+        }
     }
 
     inline flat_timeshard_header &timeshard_header_ref() {
@@ -31,20 +43,16 @@ struct flat_timeshard {
     }
 
     void timeshard_commit_index(uint64_t index) {
-        if (timeshard_header_ref().flat_index_next != index) {
+        if (timeshard_header_ref().flat_timeshard_index_next != index) {
             throw std::runtime_error("committing index out of order");
         }
-        timeshard_header_ref().flat_index_next = index + 1;
-    }
-
-    void timeshard_reset_header() {
-        timeshard_header_ref() = flat_timeshard_header();
+        timeshard_header_ref().flat_timeshard_index_next = index + 1;
     }
 
     uint64_t timeshard_allocate_bytes(uint64_t count) {
-        auto ret = timeshard_header_ref().flat_bytes_start_next;
-        timeshard_header_ref().flat_bytes_start_next += count;
-        flat_timeshard_main_mmap.mmap_allocate_at_least(timeshard_header_ref().flat_bytes_start_next);
+        auto ret = timeshard_header_ref().flat_timeshard_bytes_start_next;
+        timeshard_header_ref().flat_timeshard_bytes_start_next += count;
+        flat_timeshard_main_mmap.mmap_allocate_at_least(timeshard_header_ref().flat_timeshard_bytes_start_next);
         return ret;
     }
 };
