@@ -31,7 +31,7 @@ public:
 
     void mmap_allocate_at_least(uint64_t len);
 
-    [[nodiscard]] uint64_t mmap_allocated_len()const{return mmap_len;}
+    [[nodiscard]] uint64_t mmap_allocated_len() const { return mmap_len; }
 
     template<typename T>
     inline T &mmap_cast(uint64_t off, uint64_t count = 1) {

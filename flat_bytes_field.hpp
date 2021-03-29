@@ -18,7 +18,7 @@ struct flat_bytes_field {
     }
 
     operator std::string_view() const {
-        return std::string_view{reinterpret_cast<char *>(flat_bytes_ptr()), flat_bytes_len()};
+        return std::string_view{(flat_bytes_ptr()), flat_bytes_len()};
     }
     flat_bytes_field &operator=(std::string_view other) {
         auto offset = flat_bytes_timeshard.timeshard_allocate_bytes(sizeof(flat_bytes_len()) + other.size() + 1);

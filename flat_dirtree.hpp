@@ -1,8 +1,10 @@
 #pragma once
 
 #include "flat_mmap.hpp"
+#include "now_unixtime.hpp"
 
 #include <filesystem>
+#include <iostream>
 #include <numeric>
 #include <ranges>
 #include <unordered_map>
@@ -10,22 +12,29 @@
 
 double string_to_unixtime(std::string_view s);
 
-std::vector<std::string> fetch_flat_timeshard_dirs(std::string_view flat_dir);
+std::vector<std::string> fetch_flat_timeshard_dirs(std::string_view flat_dir, std::string_view flat_dir_suffix);
 
+template<typename timeshard_type, typename timeshard_iterator_type>
+void flat_indices_commit(timeshard_type &timeshard, timeshard_iterator_type &iter) {}
 
 template<typename timeshard_type, typename timeshard_iterator_type>
 struct flat_dirtree {
     std::string flat_dir;
+    std::string flat_dir_suffix;
     flat_mmap_settings flat_settings;
-    std::vector<timeshard_type> flat_timeshards;
+    std::vector<std::unique_ptr<timeshard_type>> flat_timeshards;
     std::unordered_map<std::string, timeshard_type *> flat_name_to_timeshard;
+    using timeshard_iterator = timeshard_iterator_type;
 
-    flat_dirtree(std::string_view dir, flat_mmap_settings const &settings = flat_mmap_settings()) : flat_dir{dir}, flat_settings{settings} {
+    flat_dirtree(std::string_view dir, std::string_view after_shard_suffix, flat_mmap_settings const &settings = flat_mmap_settings())
+        : flat_dir{dir}, flat_dir_suffix{after_shard_suffix}, flat_settings{settings} {
+        assert(!dir.empty());
+        assert(!after_shard_suffix.empty());
         reset_flat_timeshards();
     }
 
     void reset_flat_timeshards() {
-        auto new_dirs = fetch_flat_timeshard_dirs(flat_dir);
+        auto new_dirs = fetch_flat_timeshard_dirs(flat_dir, flat_dir_suffix);
         // ranges are not easily convertible to vector in C++20
         // https://timur.audio/how-to-make-a-container-from-a-c20-range
 
@@ -38,11 +47,11 @@ struct flat_dirtree {
         }
     }
 
-    typename std::vector<timeshard_type>::iterator timeshard_iter_including(double unixtime) {
+    typename decltype(flat_timeshards)::iterator timeshard_iter_including(double unixtime) {
         auto after = std::lower_bound(flat_timeshards.begin(), flat_timeshards.end(),
                                       unixtime,
-                                      [](timeshard_type const &s, double unixtime) {
-                                          return string_to_unixtime(s.flat_timeshard_name) < unixtime;
+                                      [](std::unique_ptr<timeshard_type> const &s, double unixtime) {
+                                          return string_to_unixtime(s->flat_timeshard_name) < unixtime;
                                       });
         if (after == flat_timeshards.begin()) {
             return after;
@@ -51,49 +60,86 @@ struct flat_dirtree {
         return after;
     }
 
-    typename std::vector<timeshard_type>::iterator timeshard_iter_after(double unixtime) {
+    typename decltype(flat_timeshards)::iterator timeshard_iter_after(double unixtime) {
         return std::upper_bound(flat_timeshards.begin(), flat_timeshards.end(),
                                 unixtime,
-                                [](double unixtime, timeshard_type const &s) {
-                                    return string_to_unixtime(s.flat_timeshard_name) > unixtime;
+                                [](double unixtime, std::unique_ptr<timeshard_type> const &s) {
+                                    return string_to_unixtime(s->flat_timeshard_name) > unixtime;
                                 });
     }
 
-    typename decltype(flat_name_to_timeshard)::iterator insert_new_timeshard(std::string const &timeshard_name) {
-        return flat_name_to_timeshard.insert_or_assign(timeshard_name,
-                                                       &flat_timeshards.emplace_back(timeshard_name,
-                                                                                     flat_dir + "/" + timeshard_name,
-                                                                                     flat_settings))
+    typename decltype(flat_name_to_timeshard)::iterator insert_new_timeshard(std::string_view timeshard_name) {
+        return flat_name_to_timeshard.insert_or_assign(std::string(timeshard_name),
+                                                       flat_timeshards.emplace_back(
+                                                                              std::make_unique<timeshard_type>(timeshard_name,
+                                                                                                               flat_dir + "/" + std::string(timeshard_name) + "/" + flat_dir_suffix,
+                                                                                                               flat_settings))
+                                                               .get())
                 .first;
     }
 
-    template<typename add_function>
-    void add_flat_record(std::string const &timeshard_name, add_function f) {
-        auto i = flat_name_to_timeshard.find(timeshard_name);
+    timeshard_type *timeshard_name_to_timeshard(std::string_view timeshard_name, bool readonly = false) {
+        auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
-            if (flat_settings.mmap_readonly) {
-                throw std::runtime_error("add_flat_record to new shard while readonly: " + std::string(timeshard_name));
+            if (flat_settings.mmap_readonly || readonly) {
+                return nullptr;
             }
-            std::filesystem::create_directories(flat_dir + "/" + std::string(timeshard_name));
+            std::filesystem::create_directories(flat_dir + "/" + std::string(timeshard_name) + "/" + flat_dir_suffix);
             i = insert_new_timeshard(timeshard_name);
         }
-        auto &timeshard = *i->second;
+        return &*i->second;
+    }
+
+    timeshard_type *unixtime_to_timeshard(double unixtime, bool readonly = false) {
+        return timeshard_name_to_timeshard(yyyymmdd(unixtime), readonly);
+    }
+
+    template<typename add_function>
+    void add_flat_record(std::string_view timeshard_name, add_function &&f) {
+        auto shard = timeshard_name_to_timeshard(timeshard_name);
+
+        if (!shard) {
+            if (flat_settings.mmap_readonly) {
+                throw std::runtime_error("timeshard_name_to_timeshard to new shard while readonly: " + std::string(timeshard_name));
+            } else {
+                throw std::runtime_error("timeshard_name_to_timeshard cannot create timeshard: " + std::string(timeshard_name));
+            }
+        }
+
+        add_flat_record(*shard, std::forward<add_function>(f));
+    }
+
+    template<typename add_function>
+    void add_flat_record(timeshard_type &timeshard, add_function &&f) {
         auto index = timeshard.timeshard_header_ref().flat_timeshard_index_next;
         timeshard.flat_timeshard_ensure_mmapped(index);
 
-        f(timeshard_iterator_type{&timeshard, index});
+        auto iter = timeshard_iterator_type{&timeshard, index};
+        f(iter);
+        flat_indices_commit(timeshard, iter);
 
         timeshard.timeshard_commit_index(index);
     }
 
+    template<typename add_function>
+    void add_flat_record(double unixtime, add_function &&f) {
+        return add_flat_record(*unixtime_to_timeshard(unixtime),
+                               std::forward<add_function>(f));
+    }
+
+    template<typename add_function>
+    void add_flat_record(add_function &&f) {
+        return add_flat_record(now_unixtime(), std::forward<add_function>(f));
+    }
+
 
     struct flat_dirtree_iterator : std::iterator<std::input_iterator_tag, timeshard_iterator_type> {
-        typename std::vector<timeshard_type>::iterator outer_iterator;
+        typename decltype(flat_timeshards)::iterator outer_iterator;
         uint64_t flat_iterator_index = 0;
 
         flat_dirtree_iterator() = default;
 
-        explicit flat_dirtree_iterator(typename std::vector<timeshard_type>::iterator const &it, uint64_t index = 0) : outer_iterator{it}, flat_iterator_index{index} {}
+        explicit flat_dirtree_iterator(typename decltype(flat_timeshards)::iterator const &it, uint64_t index = 0) : outer_iterator{it}, flat_iterator_index{index} {}
 
         bool operator==(flat_dirtree_iterator const &other) const {
             return other.outer_iterator == outer_iterator && other.flat_iterator_index == flat_iterator_index;
@@ -105,20 +151,20 @@ struct flat_dirtree {
         flat_dirtree_iterator &operator++() {
             ++flat_iterator_index;
 
-            if (flat_iterator_index >= outer_iterator->timeshard_header_ref().flat_timeshard_index_next) {
+            if (flat_iterator_index >= (*outer_iterator)->timeshard_header_ref().flat_timeshard_index_next) {
                 flat_iterator_index = 0;
                 ++outer_iterator;
             }
             return *this;
         }
-        const flat_dirtree_iterator operator++(int) {
+        flat_dirtree_iterator operator++(int) {
             auto old = *this;
             ++*this;
             return old;
         }
 
         timeshard_iterator_type operator*() const {
-            return timeshard_iterator_type(&*outer_iterator, flat_iterator_index);
+            return timeshard_iterator_type(&**outer_iterator, flat_iterator_index);
         }
 
         struct arrow_proxy {

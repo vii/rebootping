@@ -31,10 +31,10 @@ struct flat_timeshard {
         }
         flat_timeshard_header highest_supported_version;
         if (highest_supported_version.flat_timeshard_magic != timeshard_header_ref().flat_timeshard_magic) {
-            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ",dir));
+            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ", dir));
         }
         if (timeshard_header_ref().flat_timeshard_version > highest_supported_version.flat_timeshard_version) {
-            throw std::runtime_error(str("flat_timeshard_version too new: dir ",dir," at ", timeshard_header_ref().flat_timeshard_version, ">",highest_supported_version.flat_timeshard_version));
+            throw std::runtime_error(str("flat_timeshard_version too new: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, ">", highest_supported_version.flat_timeshard_version));
         }
     }
 
@@ -104,4 +104,10 @@ struct flat_timeshard_iterator {
 
     flat_timeshard_iterator(timeshard_type *timeshard, uint64_t index) : flat_iterator_timeshard{timeshard},
                                                                          flat_iterator_index{index} {}
+};
+
+template<typename timeshard_type>
+struct flat_timeshard_indices {
+    flat_timeshard_indices(timeshard_type &timeshard, std::string const &dir, flat_mmap_settings const &settings) {
+    }
 };

@@ -22,7 +22,6 @@
 
 struct network_interfaces_manager {
     std::unordered_map<std::string, std::unique_ptr<network_interface_watcher>> watchers;
-    ping_record_store ping_store;
 
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
 

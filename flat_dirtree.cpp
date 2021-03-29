@@ -16,10 +16,12 @@ double string_to_unixtime(std::string_view s) {
     return timegm(&parsed);
 }
 
-std::vector<std::string> fetch_flat_timeshard_dirs(std::string_view flat_dir) {
+std::vector<std::string> fetch_flat_timeshard_dirs(std::string_view flat_dir, std::string_view flat_dir_suffix) {
     std::vector<std::string> dirs;
     for (auto &p : std::filesystem::directory_iterator(flat_dir)) {
-        dirs.push_back(p.path().filename().string());
+        if (std::filesystem::exists(p / std::filesystem::path{flat_dir_suffix})) {
+            dirs.push_back(p.path().filename().string());
+        }
     }
     std::sort(dirs.begin(), dirs.end());
     return dirs;

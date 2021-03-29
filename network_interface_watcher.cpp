@@ -1,10 +1,9 @@
 #include "network_interface_watcher.hpp"
 #include "make_unique_ptr_closer.hpp"
 
-network_interface_watcher::network_interface_watcher(std::string name, ping_record_store &store)
-    : interface_name(std::move(name)),
-      interface_thread(&network_interface_watcher::run_watcher_loop, this),
-      ping_store{store} {
+network_interface_watcher::network_interface_watcher(std::string_view name)
+    : interface_name(name),
+      interface_thread(&network_interface_watcher::run_watcher_loop, this) {
 }
 
 void network_interface_watcher::run_watcher_loop() {
@@ -102,7 +101,7 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
                     auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
                     if (ip.ip_p == (uint8_t) IPProtocol::ICMP) {
-                        ping_store.process_one_icmp_packet(h, bytes);
+                        ping_record_store_process_one_icmp_packet(h, bytes);
                     }
                 }
                 break;

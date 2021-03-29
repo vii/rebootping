@@ -1,9 +1,12 @@
 #include "call_errno.hpp"
+#include "cmake_variables.hpp"
 #include "event_tracker.hpp"
 #include "file_contents_cache.hpp"
+#include "flat_record.hpp"
 #include "network_interfaces_manager.hpp"
 #include "now_unixtime.hpp"
 #include "ping_record_store.hpp"
+#include "rebootping_records_dir.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
 
@@ -55,49 +58,29 @@ uint16_t icmp_checksum_endian_safe(void *buf, size_t length) {
     return static_cast<uint16_t>(~sum);
 }
 
+rebootping_icmp_packet build_icmp_packet_and_store_record(sockaddr const &dest_addr, std::string const &if_name) {
+    rebootping_icmp_packet packet;
+    std::memset(&packet, 0, sizeof(packet));
+    packet.icmp_type = (uint8_t) ICMPType::ECHO;
+
+    ping_record_store_prepare(str(dest_addr), if_name, packet);
+
+    packet.icmp_hun.ih_idseq.icd_seq = static_cast<uint16_t>(packet.ping_slot);
+    packet.icmp_hun.ih_idseq.icd_id = htons(static_cast<uint16_t>(packet.ping_cookie));
+
+    packet.icmp_cksum = icmp_checksum_endian_safe(&packet, sizeof(packet));
+    return packet;
+}
+
 struct ping_sender {
-    std::random_device random_device;
-    std::mt19937_64 random_engine{random_device()};
-    std::uniform_int_distribution<uint64_t> uint64_random{
-            std::numeric_limits<std::uint64_t>::min(),
-            std::numeric_limits<std::uint64_t>::max()};
     int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int) IPProtocol::ICMP);
-    ping_record_store &ping_store;
 
-    ping_sender(ping_record_store &store) : ping_store{store} {};
-
-    ping_record create_ping_record(sockaddr const &dest_addr, std::string const &if_name) {
-        ping_record record;
-        record.ping_interface = if_name;
-        record.ping_start_unixtime = now_unixtime();
-        record.ping_cookie = uint64_random(random_engine);
-        std::memcpy(&record.ping_dest_addr, &dest_addr, sizeof(record.ping_dest_addr));
-        return record;
-    }
-
-    rebootping_icmp_packet build_packet_and_store_record(ping_record &&record) {
-        rebootping_icmp_packet packet;
-        std::memset(&packet, 0, sizeof(packet));
-        packet.icmp_type = (uint8_t) ICMPType::ECHO;
-
-        packet.rebootping_cookie = record.ping_cookie;
-        auto slot = ping_store.add_ping_record(std::move(record));
-        packet.rebootping_slot = slot;
-
-        packet.icmp_hun.ih_idseq.icd_seq = static_cast<uint16_t>(slot);
-        packet.icmp_hun.ih_idseq.icd_id = htons(static_cast<uint16_t>(packet.rebootping_cookie));
-
-        packet.icmp_cksum = icmp_checksum_endian_safe(&packet, sizeof(packet));
-        return packet;
-    }
-
-    void send_ping(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) {
+    void send_ping(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) const {
         CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(),
                            if_name.size());
         CALL_ERRNO_MINUS_1(bind, ping_socket, &src_addr, sizeof(src_addr));
 
-        auto record = create_ping_record(dest_addr, if_name);
-        auto packet = build_packet_and_store_record(std::move(record));
+        auto packet = build_icmp_packet_and_store_record(dest_addr, if_name);
 
         auto sent_size = CALL_ERRNO_MINUS_1(
                 sendto,
@@ -239,7 +222,7 @@ struct ping_health_decider {
 };
 
 template<typename Container>
-void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_store, double now = now_unixtime()) {
+void ping_all_addresses(Container const &known_ifs, double now = now_unixtime()) {
     ping_health_decider health_decider;
     auto last_ping_all_addresses = global_event_tracker.last_event_for_key("ping_all_addresses");
     auto last_icmp_sent = global_event_tracker.last_event_for_key("icmp_echo");
@@ -250,7 +233,7 @@ void ping_all_addresses(Container const &known_ifs, ping_record_store &ping_stor
                     {"known_ifs", known_ifs.size()},
             });
 
-    ping_sender sender{ping_store};
+    ping_sender sender;
     for (auto const &[if_name, addrs] : known_ifs) {
         if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) {
             continue;
@@ -290,19 +273,43 @@ int global_exit_value;
 void signal_callback_handler(int signum) {
     global_exit_value = signum;
 }
+define_flat_record(rebootping_event,
+                   (double, event_unixtime),
+                   (std::string_view, event_name),
+                   (std::string_view, event_compilation_timestamp),
+                   (std::string_view, event_git_sha), (double, event_git_unixtime), (std::string_view, event_message));
+
+rebootping_event &rebootping_event_log() {
+    static rebootping_event event_log{rebootping_records_dir()};
+    return event_log;
+}
+
+void rebootping_event(std::string_view event_name, std::string_view event_message = "") {
+    rebootping_event_log().add_flat_record([&](auto &&record) {
+        record.event_unixtime() = now_unixtime();
+        record.event_name() = event_name;
+        record.event_compilation_timestamp() = __TIMESTAMP__;
+        record.event_git_sha() = flat_git_sha_string;
+        record.event_git_unixtime() = flat_git_unixtime;
+        record.event_message() = event_message;
+
+        flat_record_dump_as_json(std::cout, record);
+        std::cout << std::endl;
+    });
+}
+
 
 int main() {
     signal(SIGINT, signal_callback_handler);
     signal(SIGTERM, signal_callback_handler);
 
     network_interfaces_manager interfaces_manager;
-    global_event_tracker.add_event({"rebootping_init"},
-                                   {{"compilation_timestamp", __TIMESTAMP__}});
+    rebootping_event("rebootping_init");
     auto last_dump_info_time = now_unixtime();
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
         std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
-        ping_all_addresses(known_ifs, interfaces_manager.ping_store);
+        ping_all_addresses(known_ifs);
 
         auto now = now_unixtime();
         if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {
@@ -310,7 +317,6 @@ int main() {
             interfaces_manager.report_html();
         }
     }
-    global_event_tracker.add_event({"rebootping_exit"},
-                                   {{"global_exit_value", (double) global_exit_value}});
+    rebootping_event("rebootping_exit", str("global_exit_value ", global_exit_value));
     return global_exit_value;
 }

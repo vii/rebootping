@@ -23,7 +23,7 @@ void flat_mmap::mmap_ensure_mapped(uint64_t new_mmap_len) {
     }
     if (mmap_base) {
         mmap_base = CALL_ERRNO_BAD_VALUE(mremap, MAP_FAILED,
-                                             mmap_base, mmap_len, new_mmap_len, MREMAP_MAYMOVE);
+                                         mmap_base, mmap_len, new_mmap_len, MREMAP_MAYMOVE);
     } else {
         mmap_base = CALL_ERRNO_BAD_VALUE(mmap, MAP_FAILED,
                                          nullptr, new_mmap_len, PROT_READ | (mmap_settings.mmap_readonly ? 0 : PROT_WRITE),

@@ -13,7 +13,7 @@ std::vector<std::pair<std::string, std::function<void()>>> rebootping_tests;
 std::vector<std::string> rebootping_test_failures;
 
 template<typename... arg_types>
-void rebootping_test_fail(arg_types&& ...args) {
+void rebootping_test_fail(arg_types &&...args) {
     auto s = str(args...);
     std::cout << "rebootping_test_fail " << s << std::endl;
     rebootping_test_failures.push_back(std::string{s});
@@ -43,6 +43,17 @@ struct tmpdir {
     }
 };
 
+template<typename records_type>
+std::string serialise_all_records_as_json(records_type &records) {
+    std::ostringstream oss;
+    for (auto record : records.timeshard_query()) {
+        flat_record_dump_as_json(oss, record);
+        oss << std::endl;
+    }
+    return oss.str();
+}
+
+
 TEST(flat_hash_suite, hash_instantiate) {
     tmpdir tmpdir;
     struct example_struct {
@@ -61,8 +72,8 @@ TEST(flat_hash_suite, hash_ints) {
         auto filename = tmpdir.tmpdir_name + "/hash_ints_test.flatmap";
         auto hash = flat_hash<uint64_t, uint64_t>(filename);
         for (unsigned n = 0; count > n; ++n) {
-            if(hash.hash_find_key(n)) {
-                rebootping_test_fail("hash_find_key",n);
+            if (hash.hash_find_key(n)) {
+                rebootping_test_fail("hash_find_key", n);
             }
         }
 
@@ -199,25 +210,6 @@ void test_flat_read_write(
     assert(!incorrect);
 }
 
-template<typename records_type>
-std::string string_serialise_records(records_type &records) {
-    std::ostringstream oss;
-    for (auto record : records.timeshard_query()) {
-        oss << "{";
-        bool first = true;
-        flat_record_apply_per_field([&](auto &&field, auto &&record) {
-            if (!first) {
-                oss << ", ";
-            }
-            oss << escape_json(field.flat_field_name()) << ": " << escape_json(field.flat_field_value(record));
-            first = false;
-        },
-                                    record);
-        oss << "}" << std::endl;
-    }
-    return oss.str();
-}
-
 TEST(flat_records, check_serialisation) {
     tmpdir tmpdir;
     char const *expected = R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": "3327372177", "u64": 9223372053062609372, "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
@@ -243,16 +235,16 @@ TEST(flat_records, check_serialisation) {
                                             i);
             });
         }
-        auto after_write = string_serialise_records(test_records);
+        auto after_write = serialise_all_records_as_json(test_records);
         all_kinds_records reopen_records{tmpdir.tmpdir_name};
-        auto reopen = string_serialise_records(reopen_records);
+        auto reopen = serialise_all_records_as_json(reopen_records);
         std::cout << "after_write: " << after_write << std::endl
                   << "reopen: " << reopen << std::endl;
         assert(after_write == reopen);
         assert(reopen == expected);
     }
     all_kinds_records reopen_records{tmpdir.tmpdir_name};
-    auto reopen = string_serialise_records(reopen_records);
+    auto reopen = serialise_all_records_as_json(reopen_records);
     assert(reopen == expected);
 }
 
@@ -269,9 +261,9 @@ TEST(flat_records, reopen_versions) {
                                     i);
     });
     auto reopened = all_kinds_records{tmpdir.tmpdir_name};
-    auto serialised = string_serialise_records(reopened);
+    auto serialised = serialise_all_records_as_json(reopened);
     assert(serialised.size() > 10);
-    flat_mmap main_mmap{str(tmpdir.tmpdir_name, "/", timeshard_name, "/flat_timeshard_main.flatmap")};
+    flat_mmap main_mmap{str(tmpdir.tmpdir_name, "/", timeshard_name, "/all_kinds_records/flat_timeshard_main.flatmap")};
     ++main_mmap.mmap_cast<flat_timeshard_header>(0).flat_timeshard_version;
     try {
         all_kinds_records{tmpdir.tmpdir_name};
@@ -308,9 +300,7 @@ TEST(flat_records, some_strings) {
                         uint64_t row_num,
                         auto &&field,
                         auto &&value) {
-                    return str("string_example", field.
-
-                                                 flat_field_name(),
+                    return str("string_example", field.flat_field_name(),
                                row_num
 
                     );
@@ -381,11 +371,15 @@ TEST(flat_records, all_numbers) {
 int main() {
     for (auto &[name, f] : rebootping_tests) {
         std::cout << "rebooting_running_test " << name << std::endl;
-        f();
-        std::cout << "rebootping_test_done " << name << std::endl;
-        if (!rebootping_test_failures.empty()) {
-            break;
+        try {
+            f();
+        } catch (std::exception const &e) {
+            rebootping_test_fail("test_exception in ", name, ": ", e.what());
+        } catch (...) {
+            rebootping_test_fail("test_exception unknown_exception in ", name);
+            throw;
         }
+        std::cout << "rebootping_test_done " << name << std::endl;
     }
     if (!rebootping_test_failures.empty()) {
         std::cerr << "rebootping_test_failures " << rebootping_test_failures.size() << std::endl;
