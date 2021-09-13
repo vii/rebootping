@@ -61,8 +61,16 @@ struct limited_pcap_dumper {
         auto const &ether = *(ether_header const *) bytes;
         auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
 
-        if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
+        if (h->caplen < sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
             ip.ip_p == (uint8_t) IPProtocol::TCP) {
+            return;
+        }
+        if (h->caplen < sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) &&
+            ip.ip_p == (uint8_t) IPProtocol::UDP) {
+            return;
+        }
+
+        if (ip.ip_p == (uint8_t) IPProtocol::TCP) {
             auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
             if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
                 auto port = ntohs(tcp.th_sport);

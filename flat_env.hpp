@@ -8,6 +8,6 @@
     }
 
 define_flat_env(oui_database_filename, "/var/lib/ieee-data/oui.txt");
-define_flat_env(obfuscate_address, true);
+define_flat_env(obfuscate_address, false);
 define_flat_env(obfuscate_address_reveal_prefix, 8);
 define_flat_env(timeshard_strftime_format, "%Y%m%d");
