@@ -79,8 +79,7 @@ limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr
 }
 
 void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-    if (h->caplen >= sizeof(ether_header)) {
-        auto ether = (ether_header *) bytes;
+    if (auto ether = wire_header<ether_header>::header_from_packet(bytes, h->caplen)) {
         auto dest_dumper = existing_dumper_for_macaddr(ether->ether_dhost);
         auto &source_dumper = dumper_for_macaddr(ether->ether_shost);
         if (dest_dumper) {

@@ -29,84 +29,91 @@ struct limited_pcap_dumper {
         return ret;
     }
 
+    // TODO move all the packet parsing out of here into network_interface_watcher
+    // and make state stored in the flatmapdb
+    // as we do not always want to pcap when we want to parse packets
     void note_dns_udp_packet_recv(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const &ether = *(ether_header const *) bytes;
-        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
-        auto const &udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-        auto const &dns = *(dns_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header));
+        auto p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+        std::cout << "note_dns_udp_packet_recv " << p->dns_id << " answers " << p->dns_answers << std::endl;
     }
 
-
     void note_ip_packet_recv(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const &ether = *(ether_header const *) bytes;
-        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
-        if (h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) && ip.ip_p == (uint8_t) IPProtocol::UDP) {
-            auto udp = *(udp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-            auto port = ntohs(udp.uh_dport);
+        auto p = wire_header<
+                ether_header,
+                ip_header,
+                udp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+
+        if (p->ip_p == (uint8_t) IPProtocol::UDP) {
+            auto port = ntohs(p->uh_dport);
             if (port < env("udp_recv_tracking_min_port", 10000)) {
                 global_event_tracker.add_event(
                         {
-                                str("udp_recv ", ether.ether_shost),
+                                str("udp_recv ", p->ether_shost),
                         },
                         {{"port", uint64_t(port)},
-                         {"ip_dst", str(ip.ip_dst)}});
+                         {"ip_dst", str(p->ip_dst)}});
             }
-            if (ntohs(udp.uh_sport) == 53 && h->caplen >= sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) + sizeof(dns_header)) {
+            if (ntohs(p->uh_sport) == 53) {
                 note_dns_udp_packet_recv(h, bytes);
             }
         }
     }
 
     void note_ip_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const &ether = *(ether_header const *) bytes;
-        auto const &ip = *(ip_header const *) (bytes + sizeof(ether_header));
-
-        if (h->caplen < sizeof(ether_header) + sizeof(ip_header) + sizeof(tcp_header) &&
-            ip.ip_p == (uint8_t) IPProtocol::TCP) {
-            return;
-        }
-        if (h->caplen < sizeof(ether_header) + sizeof(ip_header) + sizeof(udp_header) &&
-            ip.ip_p == (uint8_t) IPProtocol::UDP) {
+        auto p = wire_header<
+                ether_header,
+                ip_header,
+                tcp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
             return;
         }
 
-        if (ip.ip_p == (uint8_t) IPProtocol::TCP) {
-            auto tcp = *(tcp_header const *) (bytes + sizeof(ether_header) + sizeof(ip_header));
-            if ((tcp.th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
-                auto port = ntohs(tcp.th_sport);
+        if (p->ip_p == (uint8_t) IPProtocol::TCP) {
+            if ((p->th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
+                auto port = ntohs(p->th_sport);
                 if (port < env("tcp_recv_tracking_min_port", 30000)) {
                     global_event_tracker.add_event(
                             {
-                                    str("tcp_accept ", ether.ether_shost),
+                                    str("tcp_accept ", p->ether_shost),
                             },
                             {{"port", uint64_t(port)},
-                             {"ip_src", str(ip.ip_src)}});
+                             {"ip_src", str(p->ip_src)}});
                 }
             }
         }
     }
 
     void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto const &ether = *(ether_header const *) bytes;
-        auto const &arp = *(arp_header const *) (bytes + sizeof(ether_header));
+        auto p = wire_header<
+                ether_header,
+                arp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
 
-        if (ntohs(arp.arp_oper) != (uint16_t) ARPOperation::ARP_REPLY) {
+        if (ntohs(p->arp_oper) != (uint16_t) ARPOperation::ARP_REPLY) {
             return;
         }
-        if (ntohs(arp.arp_ptype) != (uint16_t) EtherType::IPv4) {
+        if (ntohs(p->arp_ptype) != (uint16_t) EtherType::IPv4) {
             return;
         }
-        if (arp.arp_plen != sizeof(in_addr)) {
+        if (p->arp_plen != sizeof(in_addr)) {
             return;
         }
-        if (arp.arp_sender != ether.ether_shost) {
+        if (p->arp_sender != p->ether_shost) {
             return;
         }
         global_event_tracker.add_event(
-                {"arp_reply", str("arp_reply ", ether.ether_shost)},
+                {"arp_reply", str("arp_reply ", p->ether_shost)},
                 {
-                        {"ip_src", str(arp.arp_spa)},
-                        {"requestor", str(arp.arp_target)},
+                        {"ip_src", str(p->arp_spa)},
+                        {"requestor", str(p->arp_target)},
                 });
     }
 
