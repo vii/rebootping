@@ -2,8 +2,8 @@
 #include "flat_bytes_field.hpp"
 #include "flat_hash.hpp"
 #include "flat_record.hpp"
-#include "str.hpp"
 #include "rebootping_test.hpp"
+#include "str.hpp"
 
 #include <functional>
 #include <iostream>
@@ -129,7 +129,7 @@ int64_t simple_hash(std::string_view s) {
 
 template<typename field_type>
 decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view field_name) {
-    return (field_type)(row_num ^ simple_hash(field_name));
+    return (field_type) (row_num ^ simple_hash(field_name));
 }
 
 template<>
@@ -350,5 +350,3 @@ TEST(flat_records, all_numbers) {
             },
             2047);
 }
-
-

@@ -125,7 +125,7 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
     }
 }
 
-void network_interface_watcher::learn_from_pcap_file(std::string const& filename) {
+void network_interface_watcher::learn_from_pcap_file(std::string const &filename) {
     network_interface_watcher watcher(filename);
     char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -150,9 +150,6 @@ void network_interface_watcher::learn_from_pcap_file(std::string const& filename
         throw std::runtime_error(str("pcap_loop failed on ", filename, ": ", pcap_geterr(pcap)));
     }
 }
-
-
-
 
 
 network_interface_watcher_live::network_interface_watcher_live(std::string_view name)

@@ -1,5 +1,5 @@
-#include "rebootping_test.hpp"
 #include "network_interface_watcher.hpp"
+#include "rebootping_test.hpp"
 
 TEST(network_interface_watcher_suite, dns_lookup_test) {
     while (!std::filesystem::exists("testdata")) {

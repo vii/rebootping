@@ -62,7 +62,7 @@ struct macaddr {
     }
 
     inline uint32_t mac_manufacturer() const {
-        return (uint32_t)(as_number() >> 24);
+        return (uint32_t) (as_number() >> 24);
     }
 
     auto inline operator==(macaddr const &other) const {

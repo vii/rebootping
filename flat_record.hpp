@@ -1,27 +1,27 @@
 #pragma once
 
-#include "flat_timeshard.hpp"
 #include "escape_json.hpp"
+#include "flat_timeshard.hpp"
 
 template<typename function, typename holder>
 inline decltype(auto) flat_record_apply_per_field(function &&f, holder &&record) {
     return std::apply([&](auto &&...field) {
-                        (f(field, record), ...);
-                      },
+        (f(field, record), ...);
+    },
                       typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
 };
 
 template<typename holder>
-inline void flat_record_dump_as_json(std::ostream&os, holder&&record) {
+inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
     os << "{";
     bool first = true;
     flat_record_apply_per_field([&](auto &&field, auto &&record) {
-                                  if (!first) {
-                                      os << ", ";
-                                  }
-                                  os << escape_json(field.flat_field_name()) << ": " << escape_json(field.flat_field_value(record));
-                                  first = false;
-                                },
+        if (!first) {
+            os << ", ";
+        }
+        os << escape_json(field.flat_field_name()) << ": " << escape_json(field.flat_field_value(record));
+        first = false;
+    },
                                 record);
     os << "}";
 }
@@ -82,7 +82,7 @@ inline void flat_record_dump_as_json(std::ostream&os, holder&&record) {
         evaluate_for_each(flat_timeshard_iterator_member, __VA_ARGS__)                                                                                                                                                            \
     };                                                                                                                                                                                                                            \
                                                                                                                                                                                                                                   \
-    inline flat_timeshard_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) {                                                                                                                  \
+    inline flat_timeshard_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) {                                                                                                           \
         return flat_timeshard_iterator_##record_name(this, index);                                                                                                                                                                \
     }                                                                                                                                                                                                                             \
     struct record_name : flat_dirtree<flat_timeshard_##record_name, flat_timeshard_iterator_##record_name> {                                                                                                                      \
@@ -90,7 +90,6 @@ inline void flat_record_dump_as_json(std::ostream&os, holder&&record) {
                                                                                                                                                                                                                                   \
         explicit record_name(std::string_view dir, flat_mmap_settings const &settings = flat_mmap_settings()) : flat_dirtree<flat_timeshard_##record_name, flat_timeshard_iterator_##record_name>(dir, #record_name, settings) {} \
     }
-
 
 
 define_flat_record(flat_records_test_macro_definitions,

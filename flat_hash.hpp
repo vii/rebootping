@@ -162,7 +162,7 @@ struct flat_hash : hash_function {
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (auto v = page.page_find_key((marker_type)(rotated_hash & ((1 << marker_bits) - 1)), k)) {
+            if (auto v = page.page_find_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k)) {
                 return v;
             }
         }
@@ -191,7 +191,7 @@ struct flat_hash : hash_function {
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (page.page_del_key((marker_type)(rotated_hash & ((1 << marker_bits) - 1)), k, [level, this](key_type const &nk) {
+            if (page.page_del_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k, [level, this](key_type const &nk) {
                     return ror((*this)(nk), (level * (level + 1)) / 2) & ((1 << marker_bits) - 1);
                 })) {
                 --hash_header().flat_hash_entry_count;

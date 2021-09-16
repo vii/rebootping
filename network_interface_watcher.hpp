@@ -24,10 +24,10 @@
 
 struct network_interface_watcher {
     std::string interface_name;
-    explicit network_interface_watcher(std::string_view name):interface_name(name){}
-    void learn_from_packet(const struct pcap_pkthdr* h, const u_char*bytes);
+    explicit network_interface_watcher(std::string_view name) : interface_name(name) {}
+    void learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes);
 
-    static void learn_from_pcap_file(std::string const& filename);
+    static void learn_from_pcap_file(std::string const &filename);
 
     network_interface_watcher(network_interface_watcher const &) = delete;
 
@@ -59,4 +59,3 @@ struct network_interface_watcher_live : network_interface_watcher {
     void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
     ~network_interface_watcher_live();
 };
-
