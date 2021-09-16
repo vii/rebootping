@@ -32,10 +32,18 @@ add_library(rebootping_lib limited_pcap_dumper.hpp env.hpp space_estimate_for_pa
 add_executable(rebootping rebootping_main.cpp)
 
 enable_testing()
-add_executable(rebootping_mmap_test rebootping_mmap_test.cpp)
-add_test(NAME rebootping_mmap_test_name COMMAND rebootping_mmap_test)
+add_library(rebootping_test_lib rebootping_test.hpp rebootping_test_main.cpp)
 
 target_include_directories(rebootping_lib PRIVATE ${PCAP_INCLUDE_DIR})
 target_link_libraries(rebootping_lib ${PCAP_LIBRARY} Threads::Threads)
 target_link_libraries(rebootping rebootping_lib)
-target_link_libraries(rebootping_mmap_test rebootping_lib)
+target_link_libraries(rebootping_test_lib rebootping_lib)
+
+add_executable(rebootping_mmap_test rebootping_mmap_test.cpp)
+add_test(NAME rebootping_mmap_test_name COMMAND rebootping_mmap_test)
+target_link_libraries(rebootping_mmap_test rebootping_test_lib)
+
+add_executable(network_interface_watcher_test network_interface_watcher_test.cpp)
+add_test(NAME network_interface_watcher_test_name COMMAND network_interface_watcher_test
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(network_interface_watcher_test rebootping_test_lib)

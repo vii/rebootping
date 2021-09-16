@@ -3,28 +3,12 @@
 #include "flat_hash.hpp"
 #include "flat_record.hpp"
 #include "str.hpp"
+#include "rebootping_test.hpp"
 
 #include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
-
-std::vector<std::pair<std::string, std::function<void()>>> rebootping_tests;
-std::vector<std::string> rebootping_test_failures;
-
-template<typename... arg_types>
-void rebootping_test_fail(arg_types &&...args) {
-    auto s = str(args...);
-    std::cout << "rebootping_test_fail " << s << std::endl;
-    rebootping_test_failures.push_back(std::string{s});
-}
-
-#define TEST(suite_name, test_name)                                                                                                                     \
-    void suite_name##_##test_name();                                                                                                                    \
-    namespace {                                                                                                                                         \
-        auto rebootping_test_register_##suite_name##_##test_name = rebootping_tests.emplace_back(#suite_name "_" #test_name, suite_name##_##test_name); \
-    }                                                                                                                                                   \
-    void suite_name##_##test_name()
 
 struct tmpdir {
     std::string tmpdir_name;
@@ -368,22 +352,3 @@ TEST(flat_records, all_numbers) {
 }
 
 
-int main() {
-    for (auto &[name, f] : rebootping_tests) {
-        std::cout << "rebooting_running_test " << name << std::endl;
-        try {
-            f();
-        } catch (std::exception const &e) {
-            rebootping_test_fail("test_exception in ", name, ": ", e.what());
-        } catch (...) {
-            rebootping_test_fail("test_exception unknown_exception in ", name);
-            throw;
-        }
-        std::cout << "rebootping_test_done " << name << std::endl;
-    }
-    if (!rebootping_test_failures.empty()) {
-        std::cerr << "rebootping_test_failures " << rebootping_test_failures.size() << std::endl;
-        return 17;
-    }
-    return 0;
-}

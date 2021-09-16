@@ -45,7 +45,7 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
         if (watchers.find(k) != watchers.end()) {
             continue;
         }
-        watchers.emplace(k, std::make_unique<network_interface_watcher>(k));
+        watchers.emplace(k, std::make_unique<network_interface_watcher_live>(k));
     }
     return known_ifs;
 }

@@ -178,7 +178,7 @@ template<typename... packet_types>
 struct wire_header : packet_types... {
     template<typename pointer>
     static wire_header<packet_types...> const *header_from_packet(pointer *bytes, size_t caplen) {
-        if (sizeof(wire_header<packet_types...>) < caplen) {
+        if (sizeof(wire_header<packet_types...>) > caplen) {
             return nullptr;
         }
         return reinterpret_cast<wire_header<packet_types...> const *>(bytes);

@@ -1,12 +1,166 @@
 #include "network_interface_watcher.hpp"
 #include "make_unique_ptr_closer.hpp"
 
-network_interface_watcher::network_interface_watcher(std::string_view name)
-    : interface_name(name),
-      interface_thread(&network_interface_watcher::run_watcher_loop, this) {
+namespace {
+    void note_dns_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+        std::cout << "note_dns_udp_packet_recv " << p->dns_id << " answers " << p->dns_answers << std::endl;
+    }
+
+    void note_tcp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<
+                ether_header,
+                ip_header,
+                tcp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+
+        if ((p->th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
+            auto port = ntohs(p->th_sport);
+            if (port < env("tcp_recv_tracking_min_port", 30000)) {
+                global_event_tracker.add_event(
+                        {
+                                str("tcp_accept ", p->ether_shost),
+                        },
+                        {{"port", uint64_t(port)},
+                         {"ip_src", str(p->ip_src)}});
+            }
+        }
+    }
+
+
+    void note_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<
+                ether_header,
+                ip_header,
+                udp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+
+        auto port = ntohs(p->uh_dport);
+        if (port < env("udp_recv_tracking_min_port", 10000)) {
+            global_event_tracker.add_event(
+                    {
+                            str("udp_recv ", p->ether_dhost),
+                    },
+                    {{"port", uint64_t(port)},
+                     {"ip_dst", str(p->ip_dst)}});
+        }
+
+        if (auto dns_p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen)) {
+            if (ntohs(dns_p->uh_sport) == 53 || ntohs(dns_p->uh_dport) == 53) {
+                note_dns_udp_packet(h, bytes);
+            }
+        }
+    }
+
+    void note_ip_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<
+                ether_header,
+                ip_header>::header_from_packet(bytes, h->caplen);
+
+        switch (p->ip_p) {
+            case (uint8_t) IPProtocol::UDP:
+                note_udp_packet(h, bytes);
+                break;
+            case (uint8_t) IPProtocol::TCP:
+                note_tcp_packet(h, bytes);
+                break;
+        }
+    }
+
+    void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<
+                ether_header,
+                arp_header>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+
+        if (ntohs(p->arp_oper) != (uint16_t) ARPOperation::ARP_REPLY) {
+            return;
+        }
+        if (ntohs(p->arp_ptype) != (uint16_t) EtherType::IPv4) {
+            return;
+        }
+        if (p->arp_plen != sizeof(in_addr)) {
+            return;
+        }
+        if (p->arp_sender != p->ether_shost) {
+            return;
+        }
+        global_event_tracker.add_event(
+                {"arp_reply", str("arp_reply ", p->ether_shost)},
+                {
+                        {"ip_src", str(p->arp_spa)},
+                        {"requestor", str(p->arp_target)},
+                });
+    }
+}// namespace
+
+void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+    auto ether = wire_header<ether_header>::header_from_packet(bytes, h->caplen);
+    if (!ether) {
+        return;
+    }
+
+    switch (ntohs(ether->ether_type)) {
+        case (uint16_t) EtherType::IPv4:
+            note_ip_packet(h, bytes);
+
+            if (auto p = wire_header<ether_header, ip_header>::header_from_packet(bytes, h->caplen)) {
+                if (p->ip_p == (uint8_t) IPProtocol::ICMP) {
+                    ping_record_store_process_one_icmp_packet(h, bytes);
+                }
+            }
+            break;
+        case (uint16_t) EtherType::ARP:
+            note_arp_packet_sent(h, bytes);
+            break;
+    }
 }
 
-void network_interface_watcher::run_watcher_loop() {
+void network_interface_watcher::learn_from_pcap_file(std::string const& filename) {
+    network_interface_watcher watcher(filename);
+    char errbuf[PCAP_ERRBUF_SIZE];
+
+    auto pcap = pcap_open_offline(filename.c_str(), errbuf);
+
+    if (!pcap) {
+        throw std::runtime_error(str("learn_from_pcap_file failed on ", filename, ": ", errbuf));
+    }
+    auto pcap_closer = make_unique_ptr_closer(pcap, [](pcap_t *p) {
+        if (p) {
+            pcap_close(p);
+        }
+    });
+    auto ret = pcap_loop(
+            pcap,
+            -1 /*cnt*/,
+            [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+                ((network_interface_watcher *) user)->learn_from_packet(h, bytes);
+            },
+            (u_char *) &watcher);
+    if (ret == -1) {
+        throw std::runtime_error(str("pcap_loop failed on ", filename, ": ", pcap_geterr(pcap)));
+    }
+}
+
+
+
+
+
+network_interface_watcher_live::network_interface_watcher_live(std::string_view name)
+    : network_interface_watcher(name),
+      interface_thread(&network_interface_watcher_live::run_watcher_loop, this) {
+}
+
+void network_interface_watcher_live::run_watcher_loop() {
     try {
         open_and_process_packets();
     } catch (...) {
@@ -16,7 +170,7 @@ void network_interface_watcher::run_watcher_loop() {
     interface_has_stopped.store(true);
 }
 
-void network_interface_watcher::open_and_process_packets() {
+void network_interface_watcher_live::open_and_process_packets() {
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),
@@ -47,12 +201,14 @@ void network_interface_watcher::open_and_process_packets() {
     }
     */
 
+    // TODO add structured logging
+    std::cerr << "Polling interface " << interface_name << std::endl;
     while (!interface_should_stop) {
         auto ret = pcap_loop(
                 interface_pcap,
                 -1 /*cnt*/,
                 [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-                    ((network_interface_watcher *) user)->process_one_packet(h, bytes);
+                    ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
                 },
                 (u_char *) this);
         if (ret == -1) {
@@ -62,10 +218,9 @@ void network_interface_watcher::open_and_process_packets() {
     }
 }
 
-limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr &ma) {
+limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const macaddr &ma) {
     std::lock_guard _{watcher_mutex};
     auto i = interface_dumpers.find(ma);
-    oui_manufacturer_name(ma);
     if (i == interface_dumpers.end()) {
         i = interface_dumpers.insert(
                                      std::make_pair(
@@ -78,7 +233,7 @@ limited_pcap_dumper &network_interface_watcher::dumper_for_macaddr(const macaddr
     return *i->second;
 }
 
-void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+void network_interface_watcher_live::process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     if (auto ether = wire_header<ether_header>::header_from_packet(bytes, h->caplen)) {
         auto dest_dumper = existing_dumper_for_macaddr(ether->ether_dhost);
         auto &source_dumper = dumper_for_macaddr(ether->ether_shost);
@@ -86,43 +241,19 @@ void network_interface_watcher::process_one_packet(const struct pcap_pkthdr *h, 
             dest_dumper->pcap_dump_packet(h, bytes);
         }
         source_dumper.pcap_dump_packet(h, bytes);
-
-        switch (ntohs(ether->ether_type)) {
-            case (uint16_t) EtherType::IPv4:
-                if (h->caplen >= sizeof(ether_header) + sizeof(ip_header)) {
-                    {
-                        std::lock_guard _{watcher_mutex};
-                        source_dumper.note_ip_packet_sent(h, bytes);
-                        if (dest_dumper) {
-                            dest_dumper->note_ip_packet_recv(h, bytes);
-                        }
-                    }
-                    auto ip = *(ip_header const *) (bytes + sizeof(ether_header));
-
-                    if (ip.ip_p == (uint8_t) IPProtocol::ICMP) {
-                        ping_record_store_process_one_icmp_packet(h, bytes);
-                    }
-                }
-                break;
-            case (uint16_t) EtherType::ARP:
-                if (h->caplen >= sizeof(ether_header) + sizeof(arp_header)) {
-                    std::lock_guard _{watcher_mutex};
-                    source_dumper.note_arp_packet_sent(h, bytes);
-                }
-                break;
-        }
     }
+    learn_from_packet(h, bytes);
     if (interface_should_stop.load()) {
         pcap_breakloop(interface_pcap);
     }
 }
 
-network_interface_watcher::~network_interface_watcher() {
+network_interface_watcher_live::~network_interface_watcher_live() {
     interface_should_stop.store(true);
     interface_thread.join();
 }
 
-limited_pcap_dumper *network_interface_watcher::existing_dumper_for_macaddr(const macaddr &ma) {
+limited_pcap_dumper *network_interface_watcher_live::existing_dumper_for_macaddr(const macaddr &ma) {
     std::lock_guard _{watcher_mutex};
     auto i = interface_dumpers.find(ma);
     if (i == interface_dumpers.end()) {
