@@ -1,5 +1,6 @@
 #include "network_interface_watcher.hpp"
 #include "make_unique_ptr_closer.hpp"
+#include "network_flat_records.hpp"
 
 namespace {
     void note_dns_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -7,7 +8,95 @@ namespace {
         if (!p) {
             return;
         }
-        std::cout << "note_dns_udp_packet_recv " << p->dns_id << " answers " << p->dns_answers << std::endl;
+
+        auto dns_start = (const u_char *) &p->dns_id;
+        auto dns_ptr = bytes + sizeof(*p);
+        auto dns_end = bytes + h->caplen;
+        auto eat_one = [&]() {
+            if (dns_ptr < dns_end) {
+                return *dns_ptr++;
+            }
+            return (u_char) 0;
+        };
+        auto eat_addr = [&]() {
+            if (dns_ptr + sizeof(network_addr) <= dns_end) {
+                auto ret = *(const network_addr *) dns_ptr;
+                dns_ptr += sizeof(network_addr);
+                return ret;
+            }
+            return (network_addr) 0;
+        };
+        auto eat_short = [&]() {
+            return eat_one() * 256 + eat_one();
+        };
+        auto eat_qname = [&]() {
+            std::ostringstream oss;
+            const u_char *saved_ptr = nullptr;
+            while (auto len = eat_one()) {
+                if (len > 63) {
+                    if (saved_ptr) {
+                        std::cerr << "note_dns_udp_packet skipping DNS name with double compression" << std::endl;
+                        break;
+                    }
+                    auto next_len = eat_one();
+                    saved_ptr = dns_ptr;
+                    dns_ptr = dns_start + (len & 63) * 256 + next_len;
+                    continue;
+                }
+                if (len > dns_end - dns_ptr) {
+                    break;
+                }
+                oss << std::string_view((const char *) (dns_ptr), len);
+                dns_ptr += len;
+                oss << '.';
+            }
+            if (saved_ptr) {
+                dns_ptr = saved_ptr;
+            }
+            return oss.str();
+        };
+
+        auto questions = ntohs(p->dns_questions);
+        for (auto q = 0; questions > q; ++q) {
+            eat_qname();
+            eat_short();
+            eat_short();
+        }
+
+        auto answers = ntohs(p->dns_answers);
+        for (auto a = 0; answers > a; ++a) {
+            auto name = eat_qname();
+            auto qtype = eat_short();
+            auto qclass = eat_short();
+            auto ttl = (eat_short() << 16) + eat_short();
+            auto rdlength = eat_short();
+            if (qclass != (int) dns_qclass::DNS_QCLASS_INET) {
+                break;
+            }
+            switch (qtype) {
+                case (int) dns_qtype::DNS_QTYPE_A: {
+                    network_addr addr = eat_addr();
+                    auto lookup = macaddr_dns_lookup{
+                            .lookup_source_macaddr = p->ether_dhost,
+                            .lookup_dest_addr = addr,
+                    };
+                    auto unixtime = timeval_to_unixtime(h->ts);
+                    dns_response_record_store().add_flat_record(unixtime, [&](flat_timeshard_iterator_dns_response_record &iter) {
+                        iter.flat_iterator_timeshard->dns_macaddr_lookup_index.index_add(lookup, iter);
+                        iter.dns_response_hostname() = name;
+                        iter.dns_response_unixtime() = unixtime;
+                        iter.dns_response_addr() = addr;
+                    });
+                } break;
+                case (int) dns_qtype::DNS_QTYPE_MX:
+                    eat_short();// preference
+                    eat_qname();
+                    break;
+                default:
+                    //std::cout << "answer qname " << name << " type " << qtype << " class " << qclass << " ttl " << ttl << " rdlength " << rdlength << std::endl;
+                    break;
+            }
+        }
     }
 
     void note_tcp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -19,7 +108,7 @@ namespace {
             return;
         }
 
-        if ((p->th_flags & ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) == ((uint8_t) TCPFlags::SYN | (uint8_t) TCPFlags::ACK)) {
+        if ((p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) == ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
             auto port = ntohs(p->th_sport);
             if (port < env("tcp_recv_tracking_min_port", 30000)) {
                 global_event_tracker.add_event(
@@ -65,10 +154,10 @@ namespace {
                 ip_header>::header_from_packet(bytes, h->caplen);
 
         switch (p->ip_p) {
-            case (uint8_t) IPProtocol::UDP:
+            case (uint8_t) ip_protocol::UDP:
                 note_udp_packet(h, bytes);
                 break;
-            case (uint8_t) IPProtocol::TCP:
+            case (uint8_t) ip_protocol::TCP:
                 note_tcp_packet(h, bytes);
                 break;
         }
@@ -82,10 +171,10 @@ namespace {
             return;
         }
 
-        if (ntohs(p->arp_oper) != (uint16_t) ARPOperation::ARP_REPLY) {
+        if (ntohs(p->arp_oper) != (uint16_t) arp_operation::ARP_REPLY) {
             return;
         }
-        if (ntohs(p->arp_ptype) != (uint16_t) EtherType::IPv4) {
+        if (ntohs(p->arp_ptype) != (uint16_t) ether_type::IPv4) {
             return;
         }
         if (p->arp_plen != sizeof(in_addr)) {
@@ -110,16 +199,16 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
     }
 
     switch (ntohs(ether->ether_type)) {
-        case (uint16_t) EtherType::IPv4:
+        case (uint16_t) ether_type::IPv4:
             note_ip_packet(h, bytes);
 
             if (auto p = wire_header<ether_header, ip_header>::header_from_packet(bytes, h->caplen)) {
-                if (p->ip_p == (uint8_t) IPProtocol::ICMP) {
+                if (p->ip_p == (uint8_t) ip_protocol::ICMP) {
                     ping_record_store_process_one_icmp_packet(h, bytes);
                 }
             }
             break;
-        case (uint16_t) EtherType::ARP:
+        case (uint16_t) ether_type::ARP:
             note_arp_packet_sent(h, bytes);
             break;
     }

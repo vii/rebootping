@@ -3,6 +3,7 @@
 #include "cmake_variables.hpp"
 #include "flat_mmap.hpp"
 #include "now_unixtime.hpp"
+#include "str.hpp"
 
 struct flat_hash_header {
     uint64_t flat_hash_magic = 0x666c617468617368;
@@ -113,7 +114,7 @@ static_assert(ror(1, 1) == (1ull << 63), "ror 1");
 
 struct flat_hash_function_class {
     template<typename... args_types>
-    decltype(auto) operator()(args_types &&...args) {
+    decltype(auto) operator()(args_types &&...args) const {
         return flat_hash_function(std::forward<args_types...>(args...));
     }
 };
@@ -125,8 +126,8 @@ struct flat_hash : hash_function {
     using marker_type = typename hash_page_type::marker_type;
 
     template<typename... arg_types>
-    flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),
-              arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap{filename, settings} {
+    explicit flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),
+                       arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap{filename, settings} {
         if (!hash_mmap.mmap_allocated_len()) {
             hash_mmap.mmap_allocate_at_least(sizeof(flat_hash_header));
             hash_header() = flat_hash_header();
@@ -152,12 +153,12 @@ struct flat_hash : hash_function {
     static_assert(hash_level_offset(2) - sizeof(flat_hash_header) == 3 * sizeof(hash_page_type), "second level starts at 3");
     static_assert(hash_level_offset(3) - sizeof(flat_hash_header) == 7 * sizeof(hash_page_type), "third level starts at 7");
 
-    hash_page_type &hash_page_for_level(unsigned level, uint64_t rotated_hash) {
+    hash_page_type &hash_page_for_level(unsigned level, uint64_t rotated_hash) const {
         return hash_mmap.mmap_cast<hash_page_type>(
                 hash_level_offset(level) + (rotated_hash & ((1 << level) - 1)) * sizeof(hash_page_type));
     }
 
-    value_type *hash_find_key(key_type const &k) {
+    value_type *hash_find_key(key_type const &k) const {
         auto rotated_hash = (*this)(k);
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
@@ -168,7 +169,7 @@ struct flat_hash : hash_function {
         }
         return nullptr;
     }
-    value_type *hash_add_key(key_type const &k) {
+    value_type &hash_add_key(key_type const &k) {
         auto rotated_hash = (*this)(k);
         unsigned level;
         for (level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
@@ -176,14 +177,14 @@ struct flat_hash : hash_function {
 
             rotated_hash = ror(rotated_hash, level);
             if (auto v = page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k)) {
-                return v;
+                return *v;
             }
         }
         hash_mmap.mmap_allocate_at_least(hash_level_offset(level + 1));
         auto &page = hash_page_for_level(level, rotated_hash);
         rotated_hash = ror(rotated_hash, level);
         ++hash_header().flat_hash_entry_count;
-        return page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k);
+        return *page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k);
     }
 
     bool hash_del_key(key_type const &k) {

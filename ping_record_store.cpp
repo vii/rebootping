@@ -4,10 +4,6 @@
 
 
 namespace {
-    double timeval_to_unixtime(timeval const &tv) {
-        return tv.tv_sec + tv.tv_usec / 1e6;
-    }
-
     define_flat_record(ping_record,
                        (double, ping_start_unixtime),
                        (double, ping_sent_seconds),
@@ -57,10 +53,10 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
     if (!packet) {
         return;
     }
-    if (ntohs(packet->ether_type) != (uint16_t) EtherType::IPv4) {
+    if (ntohs(packet->ether_type) != (uint16_t) ether_type::IPv4) {
         return;
     }
-    if (packet->ip_p != (uint8_t) IPProtocol::ICMP) {
+    if (packet->ip_p != (uint8_t) ip_protocol::ICMP) {
         return;
     }
 
@@ -82,10 +78,10 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
     }
 
     switch (packet->icmp_type) {
-        case (uint8_t) ICMPType::ECHO:
+        case (uint8_t) icmp_type::ECHO:
             record.ping_sent_seconds() = now_unixtime() - record.ping_start_unixtime();
             break;
-        case (uint8_t) ICMPType::ECHOREPLY:
+        case (uint8_t) icmp_type::ECHOREPLY:
             record.ping_recv_seconds() = now_unixtime() - record.ping_start_unixtime();
             break;
         default:

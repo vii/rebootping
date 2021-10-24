@@ -2,6 +2,7 @@
 
 #include "cmake_variables.hpp"
 #include "flat_dirtree.hpp"
+#include "flat_hash.hpp"
 #include "flat_macro.hpp"
 #include "flat_mmap.hpp"
 #include "now_unixtime.hpp"
@@ -77,8 +78,8 @@ struct flat_timeshard_base_field {
     flat_timeshard &field_timeshard;
     flat_mmap field_mmap;
 
-    flat_timeshard_base_field(flat_timeshard &timeshard, std::string const &filename, flat_mmap_settings const &settings)
-        : field_timeshard(timeshard), field_mmap(filename, settings) {
+    flat_timeshard_base_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
+        : field_timeshard(timeshard), field_mmap(dir + "/field_" + name + ".flatshard", settings) {
     }
 
     void flat_timeshard_ensure_field_mmapped(uint64_t index) {
@@ -102,12 +103,15 @@ struct flat_timeshard_iterator {
     timeshard_type *flat_iterator_timeshard;
     uint64_t flat_iterator_index;
 
+    bool operator!() const {
+        return !flat_iterator_timeshard;
+    }
+    operator bool() const {
+        return !!*this;
+    }
+
+    flat_timeshard_iterator() : flat_iterator_timeshard(nullptr), flat_iterator_index(0) {}
+
     flat_timeshard_iterator(timeshard_type *timeshard, uint64_t index) : flat_iterator_timeshard{timeshard},
                                                                          flat_iterator_index{index} {}
-};
-
-template<typename timeshard_type>
-struct flat_timeshard_indices {
-    flat_timeshard_indices(timeshard_type &timeshard, std::string const &dir, flat_mmap_settings const &settings) {
-    }
 };

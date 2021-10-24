@@ -34,7 +34,7 @@ public:
     [[nodiscard]] uint64_t mmap_allocated_len() const { return mmap_len; }
 
     template<typename T>
-    inline T &mmap_cast(uint64_t off, uint64_t count = 1) {
+    inline T &mmap_cast(uint64_t off, uint64_t count = 1) const {
         assert(off <= mmap_len);
         assert(off + sizeof(T) * count <= mmap_len);
         assert(off + sizeof(T) * count >= off);

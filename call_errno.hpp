@@ -1,5 +1,6 @@
 #pragma once
 
+#include "thread_context.hpp"
 #include <cerrno>
 #include <cstring>
 #include <sstream>
@@ -9,6 +10,10 @@ struct errno_exception : public std::exception {
     errno_exception(int err, const std::string &syscall) : caught_errno(err) {
         std::ostringstream oss;
         oss << syscall << " " << std::strerror(err);
+        for (auto &[k, v] : thread_context) {
+            oss << std::endl
+                << k << "=" << v << std::endl;
+        }
         message = oss.str();
     }
 

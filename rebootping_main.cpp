@@ -61,7 +61,7 @@ uint16_t icmp_checksum_endian_safe(void *buf, size_t length) {
 rebootping_icmp_packet build_icmp_packet_and_store_record(sockaddr const &dest_addr, std::string const &if_name) {
     rebootping_icmp_packet packet;
     std::memset(&packet, 0, sizeof(packet));
-    packet.icmp_type = (uint8_t) ICMPType::ECHO;
+    packet.icmp_type = (uint8_t) icmp_type::ECHO;
 
     ping_record_store_prepare(str(dest_addr), if_name, packet);
 
@@ -73,7 +73,7 @@ rebootping_icmp_packet build_icmp_packet_and_store_record(sockaddr const &dest_a
 }
 
 struct ping_sender {
-    int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int) IPProtocol::ICMP);
+    int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int) ip_protocol::ICMP);
 
     void send_ping(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) const {
         CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(),

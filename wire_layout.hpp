@@ -16,23 +16,23 @@
 #include <vector>
 
 
-enum class IPProtocol : uint8_t {
+enum class ip_protocol : uint8_t {
     ICMP = 1,
     TCP = 6,
     UDP = 17,
 };
 
-enum class ICMPType : uint8_t {
+enum class icmp_type : uint8_t {
     ECHOREPLY = 0,
     ECHO = 8,
 };
 
-enum class EtherType : uint16_t {
+enum class ether_type : uint16_t {
     IPv4 = 0x0800,
     ARP = 0x0806,
     IPv6 = 0x86DD,
 };
-enum class TCPFlags : uint8_t {
+enum class tcp_flags : uint8_t {
     FIN = 0x01,
     SYN = 0x02,
     RST = 0x04,
@@ -42,7 +42,7 @@ enum class TCPFlags : uint8_t {
     ECNECHO = 0x40,
     CWR = 0x80,
 };
-enum class ARPOperation : uint16_t {
+enum class arp_operation : uint16_t {
     ARP_WHO_HAS = 1,
     ARP_REPLY = 2,
 };
@@ -174,6 +174,18 @@ struct alignas(u_int16_t) dns_header {
     u_int16_t dns_additional;
 } __attribute__((__packed__));
 
+enum class dns_qtype : uint16_t {
+    DNS_QTYPE_A = 1,
+    DNS_QTYPE_NS = 2,
+    DNS_QTYPE_CNAME = 5,
+    DNS_QTYPE_MX = 0xf,
+};
+
+enum class dns_qclass : uint16_t {
+    DNS_QCLASS_INET = 1,
+};
+
+
 template<typename... packet_types>
 struct wire_header : packet_types... {
     template<typename pointer>
@@ -198,4 +210,7 @@ std::string maybe_obfuscate_address_string(std::string_view address);
 template<typename address_type>
 inline std::string maybe_obfuscate_address(address_type &&a) {
     return maybe_obfuscate_address_string(str(a));
+}
+inline double timeval_to_unixtime(timeval const &tv) {
+    return tv.tv_sec + tv.tv_usec / 1e6;
 }

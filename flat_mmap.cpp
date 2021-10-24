@@ -1,4 +1,5 @@
 #include "flat_mmap.hpp"
+#include "thread_context.hpp"
 
 flat_mmap::flat_mmap(std::string filename, flat_mmap_settings const &settings) : mmap_filename(std::move(filename)),
                                                                                  mmap_fd(-1),
@@ -33,6 +34,8 @@ void flat_mmap::mmap_ensure_mapped(uint64_t new_mmap_len) {
 }
 
 void flat_mmap::open_mmap() {
+    add_thread_context _("mmap_filename", mmap_filename);
+
     destroy_mmap();
     mmap_fd = CALL_ERRNO_MINUS_1(open,
                                  mmap_filename.c_str(),

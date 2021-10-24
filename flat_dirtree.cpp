@@ -1,5 +1,7 @@
 #include "flat_dirtree.hpp"
 
+#include <cstring>
+#include <ctime>
 #include <string_view>
 #include <vector>
 

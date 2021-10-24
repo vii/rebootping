@@ -10,23 +10,6 @@
 #include <string>
 #include <vector>
 
-struct tmpdir {
-    std::string tmpdir_name;
-
-    tmpdir() {
-        tmpdir_name = std::filesystem::temp_directory_path().string() + "/rebootping_test.XXXXXX";
-        CALL_ERRNO_BAD_VALUE(mkdtemp, nullptr, tmpdir_name.data());// can modify since C++11
-    }
-
-    ~tmpdir() {
-        for (auto &i : std::filesystem::recursive_directory_iterator(tmpdir_name)) {
-            std::cout << "tmpdir " << (i.is_regular_file() ? i.file_size() : 0) << '\t' << i.path() << std::endl;
-        }
-        auto removed_count = std::filesystem::remove_all(tmpdir_name);
-        std::cout << "tmpdir cleaned " << tmpdir_name << " " << removed_count << std::endl;
-    }
-};
-
 template<typename records_type>
 std::string serialise_all_records_as_json(records_type &records) {
     std::ostringstream oss;
