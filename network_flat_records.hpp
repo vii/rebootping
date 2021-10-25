@@ -14,15 +14,10 @@ struct macaddr_dns_lookup {
     bool operator==(macaddr_dns_lookup const &) const = default;
 };
 
-
 template<>
 inline uint64_t flat_hash_function(macaddr_dns_lookup const &k) {
     return flat_hash_function(k.lookup_dest_addr) ^ flat_hash_function(k.lookup_source_macaddr.as_number());
 }
-
-using macaddr_dns_lookup_hash = flat_hash<macaddr_dns_lookup, uint64_t>;
-
-macaddr_dns_lookup_hash &macaddr_dns_lookup_hash_store();
 
 define_flat_record(dns_response_record,
                    (double, dns_response_unixtime),

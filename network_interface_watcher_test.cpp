@@ -35,7 +35,7 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
         rebootping_test_check("43.243.131.114", ==, str(in_addr{lookup_record.dns_response_addr()}));
     }
 
-    for (int reload = 1; 1000 > reload; ++reload) {
+    for (int reload = 1; 878 > reload; ++reload) {
         int record_count = 0;
         for (auto i:dns_response_record_store().dns_macaddr_lookup_index(lookup)) {
             rebootping_test_check((unsigned long) i.dns_response_unixtime(), ==, record_unixtime);
