@@ -25,6 +25,7 @@ public:
     explicit flat_mmap(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings());
 
     flat_mmap(flat_mmap const &other) = delete;
+    flat_mmap &operator=(flat_mmap const &other) = delete;
 
     flat_mmap(flat_mmap &&other) = default;
 

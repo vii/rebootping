@@ -47,7 +47,7 @@ TEST(flat_hash_suite, hash_ints) {
         auto h = [](unsigned n) { return ~n * 17 + n * -13; };
 
         for (unsigned n = 0; count > n; ++n) {
-            *hash.hash_add_key(n) = h(n);
+            hash.hash_add_key(n) = h(n);
         }
         for (unsigned n = 0; count > n; ++n) {
             assert(*hash.hash_find_key(n) == h(n));

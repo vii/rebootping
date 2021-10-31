@@ -1,3 +1,4 @@
+#include "env.hpp"
 #include "rebootping_test.hpp"
 
 #include <functional>

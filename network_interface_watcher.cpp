@@ -35,7 +35,7 @@ namespace {
             while (auto len = eat_one()) {
                 if (len > 63) {
                     if (saved_ptr) {
-                        std::cerr << "note_dns_udp_packet skipping DNS name with double compression" << std::endl;
+                        std::cout << "note_dns_udp_packet skipping DNS name with double compression" << std::endl;
                         break;
                     }
                     auto next_len = eat_one();
@@ -68,8 +68,8 @@ namespace {
             auto name = eat_qname();
             auto qtype = eat_short();
             auto qclass = eat_short();
-            auto ttl = (eat_short() << 16) + eat_short();
-            auto rdlength = eat_short();
+            /* ttl */ (eat_short() << 16) + eat_short();
+            /* rdlength */ eat_short();
             if (qclass != (int) dns_qclass::DNS_QCLASS_INET) {
                 break;
             }
@@ -82,7 +82,7 @@ namespace {
                     };
                     auto unixtime = timeval_to_unixtime(h->ts);
                     dns_response_record_store().add_flat_record(unixtime, [&](flat_timeshard_iterator_dns_response_record &iter) {
-                        iter.flat_iterator_timeshard->dns_macaddr_lookup_index.index_add(lookup, iter);
+                        iter.flat_iterator_timeshard->dns_macaddr_lookup_index.index_linked_field_add(lookup, iter);
                         iter.dns_response_hostname() = name;
                         iter.dns_response_unixtime() = unixtime;
                         iter.dns_response_addr() = addr;
@@ -111,12 +111,7 @@ namespace {
         if ((p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) == ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
             auto port = ntohs(p->th_sport);
             if (port < env("tcp_recv_tracking_min_port", 30000)) {
-                global_event_tracker.add_event(
-                        {
-                                str("tcp_accept ", p->ether_shost),
-                        },
-                        {{"port", uint64_t(port)},
-                         {"ip_src", str(p->ip_src)}});
+                tcp_accept_record_store().tcp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).tcp_ports().notice_key(port);
             }
         }
     }
@@ -133,12 +128,7 @@ namespace {
 
         auto port = ntohs(p->uh_dport);
         if (port < env("udp_recv_tracking_min_port", 10000)) {
-            global_event_tracker.add_event(
-                    {
-                            str("udp_recv ", p->ether_dhost),
-                    },
-                    {{"port", uint64_t(port)},
-                     {"ip_dst", str(p->ip_dst)}});
+            udp_recv_record_store().udp_macaddr_index(p->ether_dhost).add_if_missing(timeval_to_unixtime(h->ts)).udp_ports().notice_key(port);
         }
 
         if (auto dns_p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen)) {
@@ -183,12 +173,7 @@ namespace {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        global_event_tracker.add_event(
-                {"arp_reply", str("arp_reply ", p->ether_shost)},
-                {
-                        {"ip_src", str(p->arp_spa)},
-                        {"requestor", str(p->arp_target)},
-                });
+        arp_response_record_store().arp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).arp_addresses().notice_key(p->arp_spa.s_addr);
     }
 }// namespace
 

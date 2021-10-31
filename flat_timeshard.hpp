@@ -32,12 +32,14 @@ struct flat_timeshard {
         }
         flat_timeshard_header highest_supported_version;
         if (highest_supported_version.flat_timeshard_magic != timeshard_header_ref().flat_timeshard_magic) {
-            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ", dir));
+            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ", dir, " magic ", timeshard_header_ref().flat_timeshard_magic));
         }
         if (timeshard_header_ref().flat_timeshard_version > highest_supported_version.flat_timeshard_version) {
             throw std::runtime_error(str("flat_timeshard_version too new: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, ">", highest_supported_version.flat_timeshard_version));
         }
     }
+    flat_timeshard(flat_timeshard const &) = delete;
+    flat_timeshard &operator=(flat_timeshard const &) = delete;
 
     inline flat_timeshard_header &timeshard_header_ref() {
         return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
@@ -45,15 +47,16 @@ struct flat_timeshard {
 
     void timeshard_commit_index(uint64_t index) {
         if (timeshard_header_ref().flat_timeshard_index_next != index) {
-            throw std::runtime_error("committing index out of order");
+            throw std::runtime_error("timeshard_commit_index index out of order");
         }
         timeshard_header_ref().flat_timeshard_index_next = index + 1;
     }
 
     uint64_t timeshard_allocate_bytes(uint64_t count) {
         auto ret = timeshard_header_ref().flat_timeshard_bytes_start_next;
-        timeshard_header_ref().flat_timeshard_bytes_start_next += count;
-        flat_timeshard_main_mmap.mmap_allocate_at_least(timeshard_header_ref().flat_timeshard_bytes_start_next);
+        auto new_start = timeshard_header_ref().flat_timeshard_bytes_start_next + count;
+        flat_timeshard_main_mmap.mmap_allocate_at_least(new_start);
+        timeshard_header_ref().flat_timeshard_bytes_start_next = new_start;
         return ret;
     }
 };
@@ -85,16 +88,14 @@ struct flat_timeshard_base_field {
     void flat_timeshard_ensure_field_mmapped(uint64_t index) {
         field_mmap.mmap_allocate_at_least((index + 1) * flat_field_sizeof<field_type>());
     }
+    inline field_type &operator[](uint64_t index) {
+        return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type));
+    }
 };
 
 template<typename field_type>
 struct flat_timeshard_field : flat_timeshard_base_field<field_type> {
     using flat_timeshard_base_field<field_type>::flat_timeshard_base_field;
-    using flat_timeshard_base_field<field_type>::field_mmap;
-
-    inline field_type &operator[](uint64_t index) {
-        return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type));
-    }
 };
 
 

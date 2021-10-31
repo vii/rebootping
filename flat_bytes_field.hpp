@@ -39,6 +39,9 @@ struct flat_bytes_field {
     inline decltype(auto) operator op(std::string const &other, flat_bytes_field const &rhs) {      \
         return other op(std::string_view) rhs;                                                      \
     }                                                                                               \
+    inline decltype(auto) operator op(char const *other, flat_bytes_field const &rhs) {             \
+        return other op(std::string_view) rhs;                                                      \
+    }                                                                                               \
     inline decltype(auto) operator op(flat_bytes_field const &lhs, std::string_view other) {        \
         return (std::string_view) lhs op other;                                                     \
     }                                                                                               \
@@ -46,6 +49,9 @@ struct flat_bytes_field {
         return (std::string_view) lhs op(std::string_view) other;                                   \
     }                                                                                               \
     inline decltype(auto) operator op(flat_bytes_field const &lhs, std::string const &other) {      \
+        return (std::string_view) lhs op other;                                                     \
+    }                                                                                               \
+    inline decltype(auto) operator op(flat_bytes_field const &lhs, char const *other) {             \
         return (std::string_view) lhs op other;                                                     \
     }
 

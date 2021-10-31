@@ -1,6 +1,7 @@
 #pragma once
 
 #include "call_errno.hpp"
+#include "env.hpp"
 #include "str.hpp"
 
 #include <filesystem>
@@ -13,10 +14,15 @@ std::vector<std::pair<std::string, std::function<void()>>> &rebootping_tests();
 extern std::vector<std::string> rebootping_test_failures;
 
 template<typename... arg_types>
-void rebootping_test_fail(arg_types &&...args) {
+inline void rebootping_test_fail(arg_types &&...args) {
     auto s = str(args...);
     std::cout << "rebootping_test_fail " << s << std::endl;
     rebootping_test_failures.push_back(std::string{s});
+
+    auto rebootping_failures_max = env("rebootping_test_failures_max", 10);
+    if (rebootping_test_failures.size() >= rebootping_failures_max) {
+        throw std::runtime_error(str("Too many test failures: ", rebootping_test_failures.size(), " last was ", s));
+    }
 }
 
 #define rebootping_test_check(a, cmp, b, ...)                                                                 \

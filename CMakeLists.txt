@@ -4,8 +4,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -O -Wall")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O -Wall ")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}  -ggdb3 -fno-omit-frame-pointer -fsanitize=address -fno-eliminate-unused-debug-symbols")
 
 find_package(PCAP REQUIRED)
 find_package(Threads)
@@ -27,7 +27,7 @@ message(STATUS "${GIT_EXECUTABLE} flat_git_unixtime ${flat_git_unixtime} flat_gi
 configure_file("./cmake_variables.hpp.in" "./cmake_variables.hpp" @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(rebootping_lib limited_pcap_dumper.hpp env.hpp space_estimate_for_path.cpp space_estimate_for_path.hpp file_contents_cache.cpp file_contents_cache.hpp event_tracker.cpp event_tracker.hpp now_unixtime.hpp str.hpp network_interface_watcher.cpp network_interface_watcher.hpp wire_layout.hpp ping_record_store.cpp ping_record_store.hpp wire_layout.cpp network_interface_watcher.cpp network_interfaces_manager.cpp network_interfaces_manager.hpp make_unique_ptr_closer.hpp call_errno.hpp flat_mmap.cpp flat_mmap.hpp flat_file_string.cpp flat_file_string.hpp flat_file_string_pool.cpp flat_file_string_pool.hpp flat_dirtree.cpp flat_dirtree.hpp flat_bytes_field.hpp escape_json.cpp
+add_library(rebootping_lib limited_pcap_dumper.hpp env.hpp space_estimate_for_path.cpp space_estimate_for_path.hpp file_contents_cache.cpp file_contents_cache.hpp event_tracker.cpp event_tracker.hpp now_unixtime.hpp str.hpp network_interface_watcher.cpp network_interface_watcher.hpp wire_layout.hpp ping_record_store.cpp ping_record_store.hpp wire_layout.cpp network_interface_watcher.cpp network_interfaces_manager.cpp network_interfaces_manager.hpp make_unique_ptr_closer.hpp call_errno.hpp flat_mmap.cpp flat_mmap.hpp flat_file_string.hpp flat_file_string_pool.cpp flat_file_string_pool.hpp flat_dirtree.cpp flat_dirtree.hpp flat_bytes_field.hpp escape_json.cpp
         flat_hash.hpp flat_cache.hpp rebootping_records_dir.cpp rebootping_records_dir.hpp network_flat_records.hpp
         network_flat_records.cpp thread_context.hpp thread_context.cpp flat_index_field.hpp flat_mfu_mru.hpp)
 
@@ -37,7 +37,7 @@ enable_testing()
 add_library(rebootping_test_lib rebootping_test.hpp rebootping_test_main.cpp)
 
 target_include_directories(rebootping_lib PRIVATE ${PCAP_INCLUDE_DIR})
-target_link_libraries(rebootping_lib ${PCAP_LIBRARY} Threads::Threads)
+target_link_libraries(rebootping_lib ${PCAP_LIBRARY} Threads::Threads stdc++fs)
 target_link_libraries(rebootping rebootping_lib)
 target_link_libraries(rebootping_test_lib rebootping_lib)
 
