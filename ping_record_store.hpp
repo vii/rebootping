@@ -3,10 +3,10 @@
 #include "event_tracker.hpp"
 #include "file_contents_cache.hpp"
 #include "limited_pcap_dumper.hpp"
+#include "network_flat_records.hpp"
 #include "now_unixtime.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
-
 #include <pcap/pcap.h>
 
 #include <atomic>
@@ -36,5 +36,5 @@ struct rebootping_ether_packet : wire_header<
 
 struct rebootping_icmp_packet : wire_header<icmp_header, rebootping_icmp_payload> {
 };
-void ping_record_store_prepare(std::string_view dest_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload);
+void ping_record_store_prepare(network_addr dest_addr, macaddr src_macaddr, std::string_view ping_if, rebootping_icmp_payload &ping_payload);
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes);

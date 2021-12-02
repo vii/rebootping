@@ -291,6 +291,11 @@ struct flat_dirtree {
                 timeshard_field.flat_timeshard_index_set_key(iter_key, iter);
             });
         }
+
+        void set_index(timeshard_iterator_type const &iter) {
+            auto &timeshard_field = iter_obj_to_field_mapper(*iter.flat_iterator_timeshard);
+            timeshard_field.flat_timeshard_index_set_key(iter_key, iter);
+        }
     };
 
     template<typename key_type, typename obj_to_field_mapper>

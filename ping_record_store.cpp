@@ -1,23 +1,10 @@
 #include "ping_record_store.hpp"
-#include "flat_record.hpp"
-#include "rebootping_records_dir.hpp"
-
+#include "network_flat_records.hpp"
 
 namespace {
-    define_flat_record(ping_record,
-                       (double, ping_start_unixtime),
-                       (double, ping_sent_seconds),
-                       (double, ping_recv_seconds),
-                       (std::string_view, ping_dest_addr),
-                       (std::string_view, ping_interface),
-                       (uint64_t, ping_cookie), );
-
-    ping_record &ping_record_store() {
-        static ping_record store(rebootping_records_dir());
-        return store;
-    }
 
     std::mutex &ping_record_store_mutex() {
+        // TODO all record stores should have a mutex, so they can withstand old shards being deleted and having multiple threads (network capture and HTML output) write and read
         static std::mutex m;
         return m;
     }
@@ -33,7 +20,7 @@ namespace {
 
 }// namespace
 
-void ping_record_store_prepare(std::string_view dest_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
+void ping_record_store_prepare(network_addr dest_addr, macaddr src_macaddr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
     ping_payload.ping_cookie = uint64_random();
     ping_payload.ping_start_unixtime = now_unixtime();
 
@@ -47,6 +34,10 @@ void ping_record_store_prepare(std::string_view dest_addr, std::string_view ping
         record.ping_cookie() = ping_payload.ping_cookie;
         ping_payload.ping_slot = record.flat_iterator_index;
     });
+    macaddr_ip_lookup lookup{.lookup_macaddr = src_macaddr, .lookup_addr = dest_addr};
+    auto last_ping = last_ping_record_store().ping_macaddr_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
+    last_ping.ping_start_unixtime() = ping_payload.ping_slot;
+    last_ping.ping_start_unixtime() = ping_payload.ping_start_unixtime;
 }
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     auto packet = rebootping_ether_packet::header_from_packet(bytes, h->caplen);

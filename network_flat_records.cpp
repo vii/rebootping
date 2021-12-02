@@ -20,3 +20,13 @@ arp_response_record &arp_response_record_store() {
     static arp_response_record store(rebootping_records_dir());
     return store;
 }
+
+ping_record &ping_record_store() {
+    static ping_record store(rebootping_records_dir());
+    return store;
+}
+
+last_ping_record &last_ping_record_store() {
+    static last_ping_record store(rebootping_records_dir());
+    return store;
+}

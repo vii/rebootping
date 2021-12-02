@@ -31,6 +31,11 @@ public:
 
 
     void mmap_allocate_at_least(uint64_t len);
+    void mmap_sparsely_allocate_at_least(uint64_t len);
+
+    std::string_view flat_mmap_filename() const {
+        return mmap_filename;
+    }
 
     [[nodiscard]] uint64_t mmap_allocated_len() const { return mmap_len; }
 

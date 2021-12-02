@@ -58,12 +58,12 @@ uint16_t icmp_checksum_endian_safe(void *buf, size_t length) {
     return static_cast<uint16_t>(~sum);
 }
 
-rebootping_icmp_packet build_icmp_packet_and_store_record(sockaddr const &dest_addr, std::string const &if_name) {
+rebootping_icmp_packet build_icmp_packet_and_store_record(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) {
     rebootping_icmp_packet packet;
     std::memset(&packet, 0, sizeof(packet));
     packet.icmp_type = (uint8_t) icmp_type::ECHO;
 
-    ping_record_store_prepare(str(dest_addr), if_name, packet);
+    ping_record_store_prepare(src_addr, dest_addr, if_name, packet);
 
     packet.icmp_hun.ih_idseq.icd_seq = static_cast<uint16_t>(packet.ping_slot);
     packet.icmp_hun.ih_idseq.icd_id = htons(static_cast<uint16_t>(packet.ping_cookie));
@@ -80,7 +80,7 @@ struct ping_sender {
                            if_name.size());
         CALL_ERRNO_MINUS_1(bind, ping_socket, &src_addr, sizeof(src_addr));
 
-        auto packet = build_icmp_packet_and_store_record(dest_addr, if_name);
+        auto packet = build_icmp_packet_and_store_record(src_addr, dest_addr, if_name);
 
         auto sent_size = CALL_ERRNO_MINUS_1(
                 sendto,
@@ -224,7 +224,6 @@ struct ping_health_decider {
 template<typename Container>
 void ping_all_addresses(Container const &known_ifs, double now = now_unixtime()) {
     ping_health_decider health_decider;
-    auto last_ping_all_addresses = global_event_tracker.last_event_for_key("ping_all_addresses");
     auto last_icmp_sent = global_event_tracker.last_event_for_key("icmp_echo");
     auto current_ping_all_addresses = global_event_tracker.add_event(
             {"ping_all_addresses"},

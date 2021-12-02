@@ -1,6 +1,14 @@
 #include "flat_mmap.hpp"
 #include "thread_context.hpp"
 
+namespace {
+    uint64_t round_up_to_aligned_page(uint64_t len) {
+        auto pagesize = getpagesize();
+        auto aligned_len = pagesize * ((len + pagesize - 1) / pagesize);
+        return aligned_len;
+    }
+}// namespace
+
 flat_mmap::flat_mmap(std::string filename, flat_mmap_settings const &settings) : mmap_filename(std::move(filename)),
                                                                                  mmap_fd(-1),
                                                                                  mmap_base(nullptr),
@@ -11,12 +19,20 @@ flat_mmap::flat_mmap(std::string filename, flat_mmap_settings const &settings) :
 
 void flat_mmap::mmap_allocate_at_least(uint64_t len) {
     if (mmap_len >= len) return;
-    auto pagesize = getpagesize();
-    auto aligned_len = pagesize * ((len + pagesize - 1) / pagesize);
+    auto aligned_len = round_up_to_aligned_page(len);
     CALL_ERRNO_MINUS_1(fallocate, mmap_fd, 0, mmap_len, aligned_len - mmap_len);
 
     mmap_ensure_mapped(aligned_len);
 }
+
+void flat_mmap::mmap_sparsely_allocate_at_least(uint64_t len) {
+    if (mmap_len >= len) return;
+    auto aligned_len = round_up_to_aligned_page(len);
+    CALL_ERRNO_MINUS_1(ftruncate, mmap_fd, aligned_len);
+
+    mmap_ensure_mapped(aligned_len);
+}
+
 
 void flat_mmap::mmap_ensure_mapped(uint64_t new_mmap_len) {
     if (new_mmap_len <= mmap_len) {

@@ -1,20 +1,47 @@
 #pragma once
 
+#include "flat_bytes_field.hpp"
 #include "flat_timeshard.hpp"
+
+struct flat_timeshard_field_comparer {
+    flat_timeshard &comparer_timeshard;
+};
+
+inline bool flat_hash_compare(
+        flat_timeshard_field_comparer const &, flat_bytes_interned_tag const &lhs, flat_bytes_interned_tag const &rhs) {
+    return lhs.bytes_offset == rhs.bytes_offset;
+}
+
+
+template<>
+[[nodiscard]] inline decltype(auto) flat_hash_prepare_key_maybe<flat_bytes_interned_tag, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
+    return [&](std::string_view input) -> std::optional<flat_bytes_interned_tag> {
+        return comparer.comparer_timeshard.timeshard_lookup_interned_string(input);
+    };
+}
+
+template<>
+[[nodiscard]] inline decltype(auto) flat_hash_prepare_key<flat_bytes_interned_tag, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
+    return [&](auto const &input) {
+        return comparer.comparer_timeshard.smap_store_string(input);
+    };
+}
 
 template<typename key_type, typename hash_function = flat_hash_function_class>
 struct flat_timeshard_index_field {
-    flat_hash<key_type, uint64_t, hash_function> field_hash;
-    flat_timeshard_index_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings) : field_hash(dir + "/field_" + name + ".flathash", settings) {}
+    flat_hash<key_type, uint64_t, hash_function, flat_timeshard_field_comparer> field_hash;
+    flat_timeshard_index_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
+        : field_hash(dir + "/field_" + name + ".flathash", settings, flat_timeshard_field_comparer{timeshard}) {}
 
     void flat_timeshard_ensure_field_mmapped(uint64_t index) {
         field_hash.hash_mmap.mmap_allocate_at_least(1);
     }
-    [[nodiscard]] uint64_t *flat_timeshard_index_lookup_key(const key_type &k) const {
+    template<typename lookup_type>
+    [[nodiscard]] uint64_t *flat_timeshard_index_lookup_key(lookup_type &&k) const {
         return field_hash.hash_find_key(k);
     }
-    template<typename iterator>
-    void flat_timeshard_index_set_key(const key_type &key, iterator const &i) {
+    template<typename lookup_type, typename iterator>
+    void flat_timeshard_index_set_key(lookup_type &&key, iterator const &i) {
         field_hash.hash_add_key(key) = i.flat_iterator_index + 1;
     }
 };

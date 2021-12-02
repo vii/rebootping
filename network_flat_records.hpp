@@ -9,16 +9,16 @@
 
 using network_addr = in_addr_t;
 
-struct macaddr_dns_lookup {
-    macaddr lookup_source_macaddr;
-    network_addr lookup_dest_addr;
+struct macaddr_ip_lookup {
+    macaddr lookup_macaddr;
+    network_addr lookup_addr;
 
-    bool operator==(macaddr_dns_lookup const &) const = default;
+    bool operator==(macaddr_ip_lookup const &) const = default;
 };
 
 template<>
-inline uint64_t flat_hash_function(macaddr_dns_lookup const &k) {
-    return flat_hash_function(k.lookup_dest_addr) ^ flat_hash_function(k.lookup_source_macaddr.as_number());
+inline uint64_t flat_hash_function(macaddr_ip_lookup const &k) {
+    return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_macaddr.as_number());
 }
 template<>
 inline uint64_t flat_hash_function(macaddr const &k) {
@@ -29,7 +29,7 @@ define_flat_record(dns_response_record,
                    (double, dns_response_unixtime),
                    (std::string_view, dns_response_hostname),
                    (network_addr, dns_response_addr),
-                   (flat_index_linked_field<macaddr_dns_lookup>, dns_macaddr_lookup_index));
+                   (flat_index_linked_field<macaddr_ip_lookup>, dns_macaddr_lookup_index));
 
 dns_response_record &dns_response_record_store();
 
@@ -54,3 +54,27 @@ define_flat_record(arp_response_record,
                    (flat_index_field<macaddr>, arp_macaddr_index));
 
 arp_response_record &arp_response_record_store();
+
+define_flat_record(ping_record,
+                   (double, ping_start_unixtime),
+                   (double, ping_sent_seconds),
+                   (double, ping_recv_seconds),
+                   (network_addr, ping_dest_addr),
+                   (std::string_view, ping_interface),
+                   (uint64_t, ping_cookie), );
+
+ping_record &ping_record_store();
+
+define_flat_record(last_ping_record,
+                   (double, ping_start_unixtime),
+                   (uint64_t, ping_slot),
+                   (flat_index_field<macaddr_ip_lookup>, ping_macaddr_index), );
+last_ping_record &last_ping_record_store();
+
+define_flat_record(interface_health_record,
+                   (double, health_decision_unixtime),
+                   (double, health_last_good_unixtime),
+                   (double, health_last_bad_unixtime),
+                   (double, health_last_active_unixtime),
+                   (macaddr, health_interface_macaddr),
+                   (flat_index_linked_field<macaddr_ip_lookup>, health_macaddr_index), );

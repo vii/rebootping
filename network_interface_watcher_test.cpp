@@ -7,7 +7,7 @@ struct rebootping_records_tmpdir : tmpdir {
         setenv("rebootping_records_dir", tmpdir_name.c_str(), 1);
     }
 };
-rebootping_records_tmpdir global_rebootping_records_tmpdir;
+[[maybe_unused]] rebootping_records_tmpdir global_rebootping_records_tmpdir;
 
 
 TEST(network_interface_watcher_suite, many_tcp_accepts) {
@@ -56,10 +56,10 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
         ++first_record_count;
     }
     rebootping_test_check(first_record_count, ==, 1);
-    auto lookup = macaddr_dns_lookup{
-            .lookup_source_macaddr = {
+    auto lookup = macaddr_ip_lookup{
+            .lookup_macaddr = {
                     0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
-            .lookup_dest_addr = addr,
+            .lookup_addr = addr,
     };
     auto timeshard = dns_response_record_store().unixtime_to_timeshard(record_unixtime, true);
     auto index = timeshard->dns_macaddr_lookup_index.flat_timeshard_index_lookup_key(lookup);

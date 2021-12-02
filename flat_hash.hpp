@@ -25,19 +25,9 @@ inline uint64_t constexpr flat_hash_mix(uint64_t z) {
 }
 
 template<typename key_type>
-struct flat_hash_type {
-    using hash_type = uint64_t;
-};
-template<>
-struct flat_hash_type<uint32_t> {
-    using hash_type = uint32_t;
-};
-
-template<typename key_type>
-inline
-        typename flat_hash_type<key_type>::hash_type
-        flat_hash_function(key_type const &k) {
-    return static_cast<typename flat_hash_type<key_type>::hash_type>(flat_hash_mix(k));
+inline uint64_t
+flat_hash_function(key_type const &k) {
+    return flat_hash_mix(k);
 }
 
 template<uint64_t max_val>
@@ -49,23 +39,23 @@ struct smallest_uint {
 };
 static_assert(std::is_integral<smallest_uint<1l << 31>::type>::value);
 
+// sizeof(flat_hash_page) = sizeof(counter_type)*(markers_count+1)+(sizeof(key_type)+sizeof(value_type))*values_count
 template<typename key_type, typename value_type, unsigned markers_count, unsigned values_count>
 struct flat_hash_page {
-    using hash_type = typename flat_hash_type<key_type>::hash_type;
     using marker_type = typename smallest_uint<markers_count>::type;
     using counter_type = typename smallest_uint<values_count>::type;
 
     counter_type page_slots[markers_count];
-
     counter_type page_next_value;
 
     key_type page_keys[values_count];
     value_type page_values[values_count];
 
-    value_type *page_add_key(marker_type marker, key_type const &k) {
+    template<typename key_compare_function>
+    value_type *page_add_key(marker_type marker, key_type const &k, key_compare_function &&compare) {
         auto &slot = page_slots[marker];
         if (slot) {
-            if (page_keys[slot - 1] == k) {
+            if (flat_hash_compare(compare, page_keys[slot - 1], k)) {
                 return &page_values[slot - 1];
             }
             return nullptr;
@@ -94,12 +84,13 @@ struct flat_hash_page {
         return true;
     }
 
-    value_type *page_find_key(marker_type marker, key_type const &k) {
+    template<typename key_compare_function>
+    value_type *page_find_key(marker_type marker, key_type const &k, key_compare_function &&compare) {
         auto const slot = page_slots[marker];
         if (!slot) {
             return nullptr;
         }
-        if (page_keys[slot - 1] != k) {
+        if (!flat_hash_compare(compare, page_keys[slot - 1], k)) {
             return nullptr;
         }
         return &page_values[slot - 1];
@@ -119,22 +110,44 @@ struct flat_hash_function_class {
     }
 };
 
-template<typename key_type, typename value_type, typename hash_function = flat_hash_function_class, unsigned marker_bits = 8>
+struct flat_hash_compare_function_class {
+};
+
+template<typename comparer, typename lhs_type, typename rhs_type, typename... fallback_overload>
+inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&...ignored) { return lhs == rhs; }
+
+template<typename key_type, typename comparer>
+inline decltype(auto) flat_hash_prepare_key_maybe(comparer const &) {
+    return [](auto const &input) -> std::optional<key_type> {
+        return {(key_type) input};
+    };
+}
+
+template<typename key_type, typename comparer>
+inline decltype(auto) flat_hash_prepare_key(comparer const &) {
+    return [](auto const &input) {
+        return (key_type) input;
+    };
+}
+
+template<typename key_type, typename value_type, typename hash_function = flat_hash_function_class, typename compare_function = flat_hash_compare_function_class, unsigned marker_bits = 8>
 struct flat_hash : hash_function {
     flat_mmap hash_mmap;
     using hash_page_type = flat_hash_page<key_type, value_type, 1 << marker_bits, 1 << (marker_bits - 1)>;
     using marker_type = typename hash_page_type::marker_type;
+    compare_function hash_compare_function;
 
     template<typename... arg_types>
     explicit flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),
-                       arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap{filename, settings} {
+                       compare_function &&passed_compare_function = compare_function(),
+                       arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap(filename, settings), hash_compare_function(passed_compare_function) {
         if (!hash_mmap.mmap_allocated_len()) {
             hash_mmap.mmap_allocate_at_least(sizeof(flat_hash_header));
             hash_header() = flat_hash_header();
         } else {
             flat_hash_header highest_supported_version;
             if (highest_supported_version.flat_hash_magic != hash_header().flat_hash_magic) {
-                throw std::runtime_error("flat_hash_magic does not match");
+                throw std::runtime_error(str("flat_hash_magic does not match ", hash_header().flat_hash_magic));
             }
             if (hash_header().flat_hash_version > highest_supported_version.flat_hash_version) {
                 throw std::runtime_error(str("flat_hash_version too new: ", hash_header().flat_hash_version, ">", highest_supported_version.flat_hash_version));
@@ -149,45 +162,64 @@ struct flat_hash : hash_function {
         return ((1 << level) - 1) * sizeof(hash_page_type) + sizeof(flat_hash_header);
     }
     static_assert(hash_level_offset(0) - sizeof(flat_hash_header) == 0, "first level starts at 0");
-    static_assert(hash_level_offset(1) - sizeof(flat_hash_header) == sizeof(hash_page_type), "second level starts at 1");
+    static_assert(hash_level_offset(1) - sizeof(flat_hash_header) == 1 * sizeof(hash_page_type), "second level starts at 1");
     static_assert(hash_level_offset(2) - sizeof(flat_hash_header) == 3 * sizeof(hash_page_type), "second level starts at 3");
     static_assert(hash_level_offset(3) - sizeof(flat_hash_header) == 7 * sizeof(hash_page_type), "third level starts at 7");
 
     hash_page_type &hash_page_for_level(unsigned level, uint64_t rotated_hash) const {
+        uint64_t page_jump = rotated_hash & ((1 << level) - 1);
+        assert(hash_level_offset(level + 1) > hash_level_offset(level) + page_jump * sizeof(hash_page_type));
         return hash_mmap.mmap_cast<hash_page_type>(
-                hash_level_offset(level) + (rotated_hash & ((1 << level) - 1)) * sizeof(hash_page_type));
+                hash_level_offset(level) + page_jump * sizeof(hash_page_type));
     }
 
-    value_type *hash_find_key(key_type const &k) const {
+    template<typename input_key>
+    value_type *hash_find_key(input_key &&ik) const {
+        auto mk = flat_hash_prepare_key_maybe<key_type>(hash_compare_function)(ik);
+        if (!mk) {
+            return nullptr;
+        }
+        auto k = *mk;
         auto rotated_hash = (*this)(k);
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
+            assert(hash_level_offset(level + 1) >= hash_level_offset(level));
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (auto v = page.page_find_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k)) {
+            if (auto v = page.page_find_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k, hash_compare_function)) {
                 return v;
             }
         }
         return nullptr;
     }
-    value_type &hash_add_key(key_type const &k) {
+
+    template<typename input_key>
+    value_type &hash_add_key(input_key &&ik) {
+        auto k = flat_hash_prepare_key<key_type>(hash_compare_function)(ik);
+
         auto rotated_hash = (*this)(k);
         unsigned level;
         for (level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
 
             rotated_hash = ror(rotated_hash, level);
-            if (auto v = page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k)) {
+            if (auto v = page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k, hash_compare_function)) {
                 return *v;
             }
         }
-        hash_mmap.mmap_allocate_at_least(hash_level_offset(level + 1));
+        hash_mmap.mmap_sparsely_allocate_at_least(hash_level_offset(level + 1));
         auto &page = hash_page_for_level(level, rotated_hash);
         rotated_hash = ror(rotated_hash, level);
         ++hash_header().flat_hash_entry_count;
-        return *page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k);
+        return *page.page_add_key(rotated_hash & ((1 << marker_bits) - 1), k, hash_compare_function);
     }
 
-    bool hash_del_key(key_type const &k) {
+    template<typename input_key>
+    bool hash_del_key(input_key &&ik) {
+        auto mk = flat_hash_maybe_prepare_key<key_type>(hash_compare_function)(ik);
+        if (!mk) {
+            return false;
+        }
+        auto k = *mk;
         auto rotated_hash = (*this)(k);
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);

@@ -76,9 +76,9 @@ namespace {
             switch (qtype) {
                 case (int) dns_qtype::DNS_QTYPE_A: {
                     network_addr addr = eat_addr();
-                    auto lookup = macaddr_dns_lookup{
-                            .lookup_source_macaddr = p->ether_dhost,
-                            .lookup_dest_addr = addr,
+                    auto lookup = macaddr_ip_lookup{
+                            .lookup_macaddr = p->ether_dhost,
+                            .lookup_addr = addr,
                     };
                     auto unixtime = timeval_to_unixtime(h->ts);
                     dns_response_record_store().add_flat_record(unixtime, [&](flat_timeshard_iterator_dns_response_record &iter) {
@@ -242,6 +242,7 @@ void network_interface_watcher_live::run_watcher_loop() {
 }
 
 void network_interface_watcher_live::open_and_process_packets() {
+    add_thread_context("pcap_interface", interface_name);
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),
