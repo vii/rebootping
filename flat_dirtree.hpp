@@ -252,7 +252,12 @@ struct flat_dirtree {
         }
 
         timeshard_iterator_type &operator*() {
+            assert(iter_record);
             return iter_record;
+        }
+        timeshard_iterator_type *operator->() {
+            assert(iter_record);
+            return &iter_record;
         }
     };
 

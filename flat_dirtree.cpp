@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <ctime>
+#include <string>
 #include <string_view>
 #include <vector>
 

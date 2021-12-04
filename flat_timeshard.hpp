@@ -139,26 +139,14 @@ struct flat_timeshard {
     }
 
 
-    uint64_t timeshard_allocate_bytes(uint64_t count) {
-        auto ret = timeshard_header_ref().flat_timeshard_bytes_start_next;
-        auto new_start = timeshard_header_ref().flat_timeshard_bytes_start_next + count;
-        flat_timeshard_main_mmap.mmap_allocate_at_least(new_start);
-        if (interned_strings_base != &flat_timeshard_main_mmap.mmap_cast<char>(0)) {
-            timeshard_reload_interned_strings();
-        }
-        timeshard_header_ref().flat_timeshard_bytes_start_next = new_start;
-        return ret;
-    }
-
     void timeshard_reload_interned_strings() {
         interned_strings.clear();
         interned_strings_base = &flat_timeshard_main_mmap.mmap_cast<char>(0);
         uint64_t offset = sizeof(flat_timeshard_header);
-        while (offset < flat_timeshard_header().flat_timeshard_bytes_start_next) {
-            auto tag = flat_bytes_interned_tag{offset};
-            auto s = (std::string_view) flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, tag};
+        while (offset < timeshard_header_ref().flat_timeshard_bytes_start_next) {
+            auto s = (std::string_view) flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}};
             interned_strings[s] = offset;
-            offset += s.size() + 1;
+            offset += s.size() + 1 + sizeof(smap_string_length(offset));
         }
     }
     inline char *smap_string_ptr(uint64_t offset, uint64_t size) {
@@ -182,17 +170,37 @@ struct flat_timeshard {
             return already.value();
         }
 
-        auto offset = timeshard_allocate_bytes(s.size() + sizeof(smap_string_length(0)) + 1);
+        uint64_t alloc_bytes = s.size() + sizeof(smap_string_length(0)) + 1;
+        auto offset = timeshard_allocate_bytes_prepare(alloc_bytes);
         smap_string_length(offset) = s.size();
         char *p = smap_string_ptr(offset, s.size() + 1);
         std::memcpy(p, s.data(), s.size());
         p[s.size()] = 0;
-        interned_strings[s] = offset;
+        timeshard_allocate_bytes_finish(alloc_bytes);
+
+        interned_strings[(std::string_view) flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}}] = offset;
         return flat_bytes_interned_tag{offset};
     }
 
     inline uint64_t &smap_string_length(uint64_t offset) {
         return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset);
+    }
+
+private:
+    uint64_t timeshard_allocate_bytes_prepare(uint64_t count) {
+        auto cur = timeshard_header_ref().flat_timeshard_bytes_start_next;
+        assert(cur >= sizeof(flat_timeshard_header));
+        assert(cur <= flat_timeshard_main_mmap.mmap_allocated_len());
+        auto new_start = cur + count;
+        assert(new_start >= cur);
+        flat_timeshard_main_mmap.mmap_allocate_at_least(new_start);
+        if (interned_strings_base != &flat_timeshard_main_mmap.mmap_cast<char>(0)) {
+            timeshard_reload_interned_strings();
+        }
+        return cur;
+    }
+    void timeshard_allocate_bytes_finish(uint64_t count) {
+        timeshard_header_ref().flat_timeshard_bytes_start_next += count;
     }
 };
 
