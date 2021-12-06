@@ -20,25 +20,29 @@ namespace {
 
 }// namespace
 
-void ping_record_store_prepare(network_addr dest_addr, macaddr src_macaddr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
+void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const & dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
     ping_payload.ping_cookie = uint64_random();
     ping_payload.ping_start_unixtime = now_unixtime();
 
     auto lock = std::lock_guard(ping_record_store_mutex());
+    auto dst_network_addr = network_addr_from_sockaddr(dst_addr);
+    flat_bytes_interned_tag if_tag;
     ping_record_store().add_flat_record(ping_payload.ping_start_unixtime, [&](auto &&record) {
         record.ping_start_unixtime() = ping_payload.ping_start_unixtime;
         record.ping_sent_seconds() = std::nan("");
         record.ping_recv_seconds() = std::nan("");
-        record.ping_dest_addr() = dest_addr;
+        record.ping_dest_addr() = dst_network_addr;
         record.ping_interface() = ping_if;
+        if_tag = record.ping_interface().flat_bytes_offset;
         record.ping_cookie() = ping_payload.ping_cookie;
         ping_payload.ping_slot = record.flat_iterator_index;
     });
-    macaddr_ip_lookup lookup{.lookup_macaddr = src_macaddr, .lookup_addr = dest_addr};
-    auto last_ping = last_ping_record_store().ping_macaddr_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
+    if_ip_lookup lookup{.lookup_if = if_tag, .lookup_addr = dst_network_addr};
+    auto last_ping = last_ping_record_store().ping_if_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
     last_ping.ping_start_unixtime() = ping_payload.ping_slot;
     last_ping.ping_start_unixtime() = ping_payload.ping_start_unixtime;
 }
+
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     auto packet = rebootping_ether_packet::header_from_packet(bytes, h->caplen);
     if (!packet) {
@@ -53,7 +57,7 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
 
     auto &ping_payload = *packet;
     auto lock = std::lock_guard(ping_record_store_mutex());
-    auto *timeshard = ping_record_store().unixtime_to_timeshard(ping_payload.ping_start_unixtime, true);
+    auto *timeshard = ping_record_store().unixtime_to_timeshard(ping_payload.ping_start_unixtime, false);
     if (!timeshard) {
         std::cout << "ping_record_store_process_packet cannot find timeshard for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago";
         return;

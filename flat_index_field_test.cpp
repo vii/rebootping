@@ -4,7 +4,7 @@
 
 define_flat_record(string_index_record,
                    (uint64_t, thirteen),
-                   (flat_bytes_mutable_interned_ptr, seven),
+                   (flat_bytes_interned_ptr, seven),
                    (flat_index_field<flat_bytes_interned_tag>, string_index));
 
 TEST(flat_index_field_suite, some_strings) {

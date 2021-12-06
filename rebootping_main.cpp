@@ -102,15 +102,22 @@ struct ping_sender {
 };
 
 struct ping_health_decider {
-    std::unordered_map<std::string, std::unordered_map<std::string, event_tracker_contents>> if_to_good_target;
-    std::unordered_map<std::string, uint64_t> good_targets;
+    std::unordered_map<std::string, std::unordered_set<std::string>> if_to_good_target;
+    std::unordered_map<std::string, uint64_t> good_targets_to_if_count;
     std::unordered_set<std::string> live_interfaces;
-    std::vector<std::string> const target_ping_ips = env("target_ping_ips", std::vector<std::string>{
+    std::vector<network_addr> const target_ping_addrs = []() {
+        auto ips = env("target_ping_ips", std::vector<std::string>{
                                                                                     "8.8.8.8",
                                                                                     "8.8.4.4",
                                                                                     "1.1.1.1",
                                                                                     "1.0.0.1",
                                                                             });
+        std::vector<network_addr> ret;
+        for (auto&& ip:ips) {
+            ret.push_back(network_addr_from_string(ip));
+        }
+        return ret;
+    }();
 
 
     std::unordered_set<std::string> decide_health() {
@@ -118,7 +125,7 @@ struct ping_health_decider {
         uint64_t best_count = 0;
         for (auto const &[k, v] : if_to_good_target) {
             best_count = std::max(best_count, v.size());
-            if (v.size() == good_targets.size() && !good_targets.empty()) {
+            if (v.size() == good_targets_to_if_count.size() && !good_targets_to_if_count.empty()) {
                 healthy_interfaces.insert(k);
             }
             for (auto &&t : target_ping_ips) {
@@ -127,7 +134,7 @@ struct ping_health_decider {
                                                     str("lost_ping ", k)},
                                                    {{"ping_interface", k},
                                                     {"ping_dest_addr", t},
-                                                    {"pings_successful", good_targets[t]}});
+                                                    {"pings_successful", good_targets_to_if_count[t]}});
                 }
             }
         }
@@ -178,7 +185,7 @@ struct ping_health_decider {
                         {
                                 {"ping_interface", i},
                                 {"if_to_good_target", if_to_good_target[i].size()},
-                                {"good_targets", good_targets.size()},
+                                {"good_targets_to_if_count", good_targets_to_if_count.size()},
                         });
                 write_unhealthy(i, true);
             } else {
@@ -204,7 +211,7 @@ struct ping_health_decider {
                     {
                             {"ping_interface", i},
                             {"if_to_good_target", if_to_good_target[i].size()},
-                            {"good_targets", good_targets.size()},
+                            {"good_targets_to_if_count", good_targets_to_if_count.size()},
                             {"last_mark_unhealthy_time", interface_to_last_mark_unhealthy_time[i]},
                     });
 
@@ -222,15 +229,8 @@ struct ping_health_decider {
 };
 
 template<typename Container>
-void ping_all_addresses(Container const &known_ifs, double now = now_unixtime()) {
+void ping_all_addresses(Container const &known_ifs, double now, double last_ping) {
     ping_health_decider health_decider;
-    auto last_icmp_sent = global_event_tracker.last_event_for_key("icmp_echo");
-    auto current_ping_all_addresses = global_event_tracker.add_event(
-            {"ping_all_addresses"},
-            {
-                    {"target_ping_ips", health_decider.target_ping_ips.size()},
-                    {"known_ifs", known_ifs.size()},
-            });
 
     ping_sender sender;
     for (auto const &[if_name, addrs] : known_ifs) {
@@ -239,21 +239,22 @@ void ping_all_addresses(Container const &known_ifs, double now = now_unixtime())
         }
         health_decider.live_interfaces.insert(if_name);
         health_decider.if_to_good_target[if_name];// force creation
-        for (sockaddr const &src_addr : addrs) {
-            for (auto &&dest : health_decider.target_ping_ips) {
-                auto reply = global_event_tracker.last_event_for_key(str("icmp_echoreply to ", dest, " if ", if_name));
+        for (sockaddr const &src_sockaddr : addrs) {
+            network_addr src_addr = network_addr_from_sockaddr(src_sockaddr);
 
-                if (last_ping_all_addresses && reply &&
+            for (auto &&dest : health_decider.target_ping_addrs) {
+//                auto reply = TODO
+/*
+                if (last_ping && reply &&
                     reply->event_noticed_unixtime >= last_ping_all_addresses->event_noticed_unixtime) {
                     health_decider.if_to_good_target[if_name][dest] = reply.value();
-                    ++health_decider.good_targets[dest];
+                    ++health_decider.good_targets_to_if_count[dest];
                 }
-
-                auto dest_sockaddr = sockaddr_from_string(dest);
+*/
 
                 try {
                     for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
-                        sender.send_ping(src_addr, dest_sockaddr, if_name);
+                        sender.send_ping(src_sockaddr, sockaddr_from_network_addr(dest), if_name);
                     }
                 } catch (std::exception const &e) {
                     std::cerr << "cannot ping on " << if_name << ": " << e.what() << std::endl;
@@ -305,16 +306,17 @@ int main() {
     network_interfaces_manager interfaces_manager;
     rebootping_event("rebootping_init");
     auto last_dump_info_time = now_unixtime();
+    double last_ping = std::nan("");
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
-        std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
-        ping_all_addresses(known_ifs);
-
         auto now = now_unixtime();
+        ping_all_addresses(known_ifs, now, last_ping);
+
         if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {
             last_dump_info_time = now;
             interfaces_manager.report_html();
         }
+        std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
     }
     rebootping_event("rebootping_exit", str("global_exit_value ", global_exit_value));
     return global_exit_value;

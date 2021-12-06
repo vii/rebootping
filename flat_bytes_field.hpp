@@ -84,15 +84,15 @@ struct flat_timeshard_field<std::string_view> : flat_timeshard_field_bytes_base 
     }
 };
 
-using flat_bytes_mutable_interned_ptr = flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag &>;
-using flat_bytes_const_interned_ptr = flat_bytes_ptr<flat_timeshard, const flat_bytes_interned_tag>;
+using flat_bytes_interned_ptr = flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag &>;
+using flat_bytes_field_ptr = flat_bytes_ptr<flat_timeshard_field<std::string_view>, flat_bytes_offset_tag &>;
 
 template<>
-struct flat_timeshard_field<flat_bytes_mutable_interned_ptr> : flat_timeshard_base_field<flat_bytes_offset_tag> {
+struct flat_timeshard_field<flat_bytes_interned_ptr> : flat_timeshard_base_field<flat_bytes_offset_tag> {
     using flat_timeshard_base_field<flat_bytes_offset_tag>::flat_timeshard_base_field;
 
-    inline flat_bytes_mutable_interned_ptr operator[](uint64_t index) {
-        return flat_bytes_mutable_interned_ptr{
+    inline flat_bytes_interned_ptr operator[](uint64_t index) {
+        return flat_bytes_interned_ptr{
                 field_timeshard,
                 field_mmap.mmap_cast<flat_bytes_interned_tag>(index * sizeof(flat_bytes_interned_tag))};
     }

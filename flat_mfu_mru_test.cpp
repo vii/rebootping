@@ -6,8 +6,7 @@
 
 TEST(flat_mfu_mru_test_suite, empty) {
     flat_mfu_mru<std::string, 10, 5> fmms;
-    fmms.clear
-            rebootping_test_check(fmms.known_keys_and_counts().size(), ==, 0);
+    rebootping_test_check(fmms.known_keys_and_counts().size(), ==, 0);
     flat_mfu_mru<uint64_t, 1, 10> fmmu;
     rebootping_test_check(fmmu.known_keys_and_counts().size(), ==, 0);
 }

@@ -77,10 +77,10 @@ struct flat_dirtree {
                 .first;
     }
 
-    timeshard_type *timeshard_name_to_timeshard(std::string_view timeshard_name, bool readonly = false) {
+    timeshard_type *timeshard_name_to_timeshard(std::string_view timeshard_name, bool create_missing = true) {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
-            if (flat_settings.mmap_readonly || readonly) {
+            if (flat_settings.mmap_readonly || !create_missing) {
                 return nullptr;
             }
             std::filesystem::create_directories(flat_dir + "/" + std::string(timeshard_name) + "/" + flat_dir_suffix);
@@ -89,8 +89,8 @@ struct flat_dirtree {
         return &*i->second;
     }
 
-    timeshard_type *unixtime_to_timeshard(double unixtime, bool readonly = false) {
-        return timeshard_name_to_timeshard(yyyymmdd(unixtime), readonly);
+    timeshard_type *unixtime_to_timeshard(double unixtime, bool create_missing = true) {
+        return timeshard_name_to_timeshard(yyyymmdd(unixtime), create_missing);
     }
 
     template<typename add_function>

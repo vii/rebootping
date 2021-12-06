@@ -116,7 +116,7 @@ decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view 
 }
 
 template<>
-decltype(auto) row_generator_all_kinds_value<flat_bytes_field>(uint64_t row_num, std::string_view field_name) {
+decltype(auto) row_generator_all_kinds_value<flat_bytes_field_ptr>(uint64_t row_num, std::string_view field_name) {
     return str(field_name, row_num);
 }
 
