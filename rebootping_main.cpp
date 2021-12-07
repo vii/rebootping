@@ -102,18 +102,18 @@ struct ping_sender {
 };
 
 struct ping_health_decider {
-    std::unordered_map<std::string, std::unordered_set<std::string>> if_to_good_target;
+    std::unordered_map<std::string, std::unordered_set<network_addr>> if_to_good_target;
     std::unordered_map<std::string, uint64_t> good_targets_to_if_count;
     std::unordered_set<std::string> live_interfaces;
     std::vector<network_addr> const target_ping_addrs = []() {
         auto ips = env("target_ping_ips", std::vector<std::string>{
-                                                                                    "8.8.8.8",
-                                                                                    "8.8.4.4",
-                                                                                    "1.1.1.1",
-                                                                                    "1.0.0.1",
-                                                                            });
+                                                  "8.8.8.8",
+                                                  "8.8.4.4",
+                                                  "1.1.1.1",
+                                                  "1.0.0.1",
+                                          });
         std::vector<network_addr> ret;
-        for (auto&& ip:ips) {
+        for (auto &&ip : ips) {
             ret.push_back(network_addr_from_string(ip));
         }
         return ret;
@@ -128,7 +128,7 @@ struct ping_health_decider {
             if (v.size() == good_targets_to_if_count.size() && !good_targets_to_if_count.empty()) {
                 healthy_interfaces.insert(k);
             }
-            for (auto &&t : target_ping_ips) {
+            for (auto &&t : target_ping_addrs) {
                 if (v.find(t) == v.end()) {
                     global_event_tracker.add_event({"lost_ping",
                                                     str("lost_ping ", k)},
@@ -239,12 +239,25 @@ void ping_all_addresses(Container const &known_ifs, double now, double last_ping
         }
         health_decider.live_interfaces.insert(if_name);
         health_decider.if_to_good_target[if_name];// force creation
-        for (sockaddr const &src_sockaddr : addrs) {
-            network_addr src_addr = network_addr_from_sockaddr(src_sockaddr);
 
+        if (!std::isnan(last_ping)) {
             for (auto &&dest : health_decider.target_ping_addrs) {
-//                auto reply = TODO
-/*
+                auto replies = last_ping_record_store().ping_if_index(std::make_pair(if_name, dest), last_ping);
+                if (!replies.empty()) {
+                    auto last_reply = *replies.begin();
+                    auto timeshard = ping_record_store().unixtime_to_timeshard(last_reply.ping_start_unixtime(), false);
+                    if (timeshard && last_reply.ping_start_unixtime() >= last_ping) {
+                        auto ping_record = timeshard->timeshard_iterator_at(last_reply.ping_slot());
+                        if (ping_record.ping_recv_seconds() >= last_ping) {
+                            health_decider.if_to_good_target[if_name].insert(dest);
+                        }
+                    }
+                }
+            }
+        }
+
+                           //                auto reply = TODO
+                           /*
                 if (last_ping && reply &&
                     reply->event_noticed_unixtime >= last_ping_all_addresses->event_noticed_unixtime) {
                     health_decider.if_to_good_target[if_name][dest] = reply.value();
@@ -252,6 +265,12 @@ void ping_all_addresses(Container const &known_ifs, double now, double last_ping
                 }
 */
 
+
+        // send pings
+        for (sockaddr const &src_sockaddr : addrs) {
+            network_addr src_addr = network_addr_from_sockaddr(src_sockaddr);
+
+            for (auto &&dest : health_decider.target_ping_addrs) {
                 try {
                     for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
                         sender.send_ping(src_sockaddr, sockaddr_from_network_addr(dest), if_name);
@@ -262,7 +281,7 @@ void ping_all_addresses(Container const &known_ifs, double now, double last_ping
             }
         }
     }
-    if (last_ping_all_addresses && last_icmp_sent) {
+    if (!std::isnan(last_ping)) {
         auto healthy = health_decider.decide_health();
         health_decider.act_on_healthy_interfaces(std::move(healthy));
     }

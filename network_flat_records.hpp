@@ -9,22 +9,22 @@
 
 using network_addr = in_addr_t;
 
-inline network_addr network_addr_from_sockaddr(sockaddr const&sa) {
+inline network_addr network_addr_from_sockaddr(sockaddr const &sa) {
     if (sa.sa_family != AF_INET) {
         throw std::runtime_error(str("network_addr_from_sockaddr cannot handle family ", sa.sa_family));
     }
-    return reinterpret_cast<sockaddr_in const*>(&sa)->sin_addr.s_addr;
+    return reinterpret_cast<sockaddr_in const *>(&sa)->sin_addr.s_addr;
 }
 
-inline network_addr network_addr_from_string(const std::string& addr) {
+inline network_addr network_addr_from_string(const std::string &addr) {
     auto sa = sockaddr_from_string(addr, AF_INET);
     return network_addr_from_sockaddr(sa);
 }
 inline sockaddr sockaddr_from_network_addr(network_addr na) {
     sockaddr ret;
-    std::memset(&ret,0,sizeof(ret));
+    std::memset(&ret, 0, sizeof(ret));
     ret.sa_family = AF_INET;
-    reinterpret_cast<sockaddr_in*>(&ret)->sin_addr.s_addr = na;
+    reinterpret_cast<sockaddr_in *>(&ret)->sin_addr.s_addr = na;
     return ret;
 }
 
@@ -57,6 +57,38 @@ template<>
 inline uint64_t flat_hash_function(if_ip_lookup const &k) {
     return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_if.bytes_offset);
 }
+
+template<>
+[[nodiscard]] inline decltype(auto) flat_hash_prepare_key_maybe<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
+    return [&](auto&& input) -> std::optional<if_ip_lookup> {
+        if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
+            return input;
+        } else {
+            auto s = comparer.comparer_timeshard.timeshard_lookup_interned_string(input.first);
+            if (!s) {
+                return std::nullopt;
+            }
+            return if_ip_lookup{s.value(), input.second};
+        }
+    };
+}
+
+template<>
+[[nodiscard]] inline decltype(auto) flat_hash_prepare_key<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
+    return [&](auto&&input) {
+        if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
+            return input;
+        } else {
+            return if_ip_lookup{comparer.comparer_timeshard.smap_store_string(input.first), input.second};
+        }
+    };
+}
+
+inline bool flat_hash_compare(
+        flat_timeshard_field_comparer const &comparer, if_ip_lookup const &lhs, if_ip_lookup const &rhs) {
+    return flat_hash_compare(comparer, lhs.lookup_if, rhs.lookup_if) && flat_hash_compare(comparer, lhs.lookup_addr, rhs.lookup_addr);
+}
+
 
 define_flat_record(dns_response_record,
                    (double, dns_response_unixtime),

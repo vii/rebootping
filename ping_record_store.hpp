@@ -36,5 +36,5 @@ struct rebootping_ether_packet : wire_header<
 
 struct rebootping_icmp_packet : wire_header<icmp_header, rebootping_icmp_payload> {
 };
-void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const & dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload);
+void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload);
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes);

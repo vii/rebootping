@@ -135,7 +135,7 @@ struct flat_hash : hash_function {
     flat_mmap hash_mmap;
     using hash_page_type = flat_hash_page<key_type, value_type, 1 << marker_bits, 1 << (marker_bits - 1)>;
     using marker_type = typename hash_page_type::marker_type;
-    compare_function hash_compare_function;
+    [[no_unique_address]]    compare_function hash_compare_function;
 
     template<typename... arg_types>
     explicit flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),

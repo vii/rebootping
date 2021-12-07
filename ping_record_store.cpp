@@ -20,7 +20,7 @@ namespace {
 
 }// namespace
 
-void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const & dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
+void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
     ping_payload.ping_cookie = uint64_random();
     ping_payload.ping_start_unixtime = now_unixtime();
 
