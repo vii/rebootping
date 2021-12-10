@@ -20,4 +20,3 @@ arp_response_record &arp_response_record_store() {
     static arp_response_record store(rebootping_records_dir());
     return store;
 }
-

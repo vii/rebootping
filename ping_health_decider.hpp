@@ -1,8 +1,9 @@
 #pragma once
 
-#include "wire_layout.hpp"
-#include "network_flat_records.hpp"
 #include "env.hpp"
+#include "network_flat_records.hpp"
+#include "wire_layout.hpp"
+#include "flat_index_field.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -15,9 +16,9 @@ define_flat_record(interface_health_record,
                    (double, health_last_bad_unixtime),
                    (double, health_last_active_unixtime),
                    (flat_bytes_interned_ptr, health_interface),
-                   (flat_index_linked_field<flat_bytes_interned_ptr>, health_interface_index), );
+                   (flat_index_linked_field<flat_bytes_interned_tag>, health_interface_index), );
 
-interface_health_record& interface_health_record_store();
+interface_health_record &interface_health_record_store();
 
 struct ping_health_decider {
     void ping_all_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping);
@@ -40,7 +41,7 @@ struct ping_health_decider {
     }();
 
 
-    std::unordered_set<std::string> decide_health(flat_timeshard_iterator_interface_health_record now);
+    std::unordered_set<std::string> decide_health(double now);
 
     void act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now = now_unixtime());
 };

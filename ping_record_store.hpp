@@ -59,8 +59,5 @@ last_ping_record &last_ping_record_store();
 define_flat_record(unanswered_ping_record,
                    (double, ping_start_unixtime),
                    (uint64_t, ping_slot),
-                   (flat_index_linked_field<if_ip_lookup>, ping_if_ip_index),
-);
+                   (flat_index_linked_field<if_ip_lookup>, ping_if_ip_index), );
 unanswered_ping_record &unanswered_ping_record_store();
-
-

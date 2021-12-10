@@ -313,7 +313,7 @@ struct flat_dirtree {
             if (auto lookup = timeshard_field.flat_timeshard_index_lookup_key(iter_key)) {
                 return timeshard_iterator_type(last_timeshard, *lookup - 1);
             }
-            return iter_dirtree.add_flat_record(*last_timeshard, [&](const timeshard_iterator_type &iter) {
+            return iter_dirtree.add_flat_record(*last_timeshard, [&](timeshard_iterator_type &iter) {
                 f(iter);
                 timeshard_field.flat_timeshard_index_set_key(iter_key, iter);
             });

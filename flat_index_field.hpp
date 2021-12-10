@@ -62,8 +62,8 @@ struct flat_timeshard_index_linked_field : flat_timeshard_index_linked_field_bas
     }
 
 
-    template<typename iterator>
-    void index_linked_field_add(const key_type &key, iterator const &i) {
+    template<typename lookup_type, typename iterator>
+    void index_linked_field_add(lookup_type &&key, iterator const &i) {
         auto index = i.flat_iterator_index;
         auto &v = field_hash.hash_add_key(key);
         (*this)[index] = v;

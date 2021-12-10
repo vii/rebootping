@@ -60,7 +60,7 @@ inline uint64_t flat_hash_function(if_ip_lookup const &k) {
 
 template<>
 [[nodiscard]] inline decltype(auto) flat_hash_prepare_key_maybe<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](auto&& input) -> std::optional<if_ip_lookup> {
+    return [&](auto &&input) -> std::optional<if_ip_lookup> {
         if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
             return input;
         } else {
@@ -75,7 +75,7 @@ template<>
 
 template<>
 [[nodiscard]] inline decltype(auto) flat_hash_prepare_key<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](auto&&input) {
+    return [&](auto &&input) {
         if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
             return input;
         } else {
@@ -119,5 +119,3 @@ define_flat_record(arp_response_record,
                    (flat_index_field<macaddr>, arp_macaddr_index));
 
 arp_response_record &arp_response_record_store();
-
-

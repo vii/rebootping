@@ -5,6 +5,7 @@
 #include "flat_record.hpp"
 #include "network_interfaces_manager.hpp"
 #include "now_unixtime.hpp"
+#include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
 #include "rebootping_records_dir.hpp"
 #include "str.hpp"
@@ -67,7 +68,8 @@ int main() {
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
         auto now = now_unixtime();
-        ping_all_addresses(known_ifs, now, last_ping);
+        ping_health_decider decider;
+        decider.ping_all_addresses(known_ifs, now, last_ping);
         last_ping = now;
 
         if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {

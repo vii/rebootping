@@ -97,13 +97,13 @@ void ping_health_decider::ping_all_addresses(std::unordered_map<std::string, std
                     auto timeshard = ping_record_store().unixtime_to_timeshard(last_reply.ping_start_unixtime(), false);
                     if (timeshard && last_reply.ping_start_unixtime() >= last_ping) {
                         auto ping_record = timeshard->timeshard_iterator_at(last_reply.ping_slot());
-                        if (ping_record.ping_recv_seconds() >= last_ping ) {
+                        if (ping_record.ping_recv_seconds() >= last_ping) {
                             if_to_good_target[if_name].insert(dest);
                         } else {
-                            unanswered_ping_record_store().add_flat_record(last_reply.ping_start_unixtime(), [&](auto&&r){
+                            unanswered_ping_record_store().add_flat_record(last_reply.ping_start_unixtime(), [&](auto &&r) {
                                 r.ping_start_unixtime() = last_reply.ping_start_unixtime();
                                 r.ping_slot() = last_reply.ping_slot();
-                                r.flat_iterator_timeshard->ping_if_ip_index.index_linked_field_add(std::make_pair(if_name, dest),r);
+                                r.flat_iterator_timeshard->ping_if_ip_index.index_linked_field_add(std::make_pair(if_name, dest), r);
                             });
                         }
                     }
@@ -154,8 +154,9 @@ std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
 
     for (auto &&interface : live_interfaces) {
         bool now_is_good = healthy_interfaces.contains(interface);
-        // TODO preserve fields from last_record
-        auto update_record = [&](flat_timeshard_iterator_interface_health_record&r) {
+        flat_timeshard_iterator_interface_health_record last_record;
+
+        auto update_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
             r.health_decision_unixtime() = now;
 
             if (now_is_good) {
@@ -164,21 +165,30 @@ std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
                 r.health_last_bad_unixtime() = now;
             }
         };
-        auto fill_record =  [&](flat_timeshard_iterator_interface_health_record&r) {
-            update_record(r);
+        auto new_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
+            if (last_record) {
+                r.health_last_good_unixtime() = last_record.health_last_good_unixtime();
+                r.health_last_bad_unixtime() = last_record.health_last_bad_unixtime();
+            } else {
+                r.health_last_good_unixtime() = std::nan("");
+                r.health_last_bad_unixtime() = std::nan("");
+                r.health_last_active_unixtime() = std::nan("");
+            }
+
+            update_fields(r);
             r.health_interface() = interface;
             r.flat_iterator_timeshard->health_interface_index.index_linked_field_add(interface, r);
-
         };
 
-        auto last_record = interface_health_record_store().health_interface(interface).add_if_missing(fill_record, now);
 
-        bool last_was_good = last_record.health_last_good_unixtime() == last_record.health_decision_unixtime();
+        last_record = interface_health_record_store().health_interface_index(interface).add_if_missing(new_fields, now);
 
-        if (last_was_good != now_is_good) {
-            interface_health_record_store().add_flat_record(now, fill_record);
+        bool last_was_good = last_record && (last_record.health_last_good_unixtime() == last_record.health_decision_unixtime());
+
+        if (!last_record || last_was_good != now_is_good) {
+            interface_health_record_store().add_flat_record(now, new_fields);
         } else {
-            update_record(last_record);
+            update_fields(last_record);
         }
     }
 
@@ -187,15 +197,15 @@ std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
 void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now) {
     bool interfaces_have_changed = false;
     auto write_unhealthy = [&](std::string const &if_name, bool unhealthy) {
-      auto health_file = str(
-              env("health_file_prefix", "rebootping-"),
-              if_name,
-              env("health_file_suffix", ".status"));
-      if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
-          interfaces_have_changed = true;
-          return true;
-      }
-      return false;
+        auto health_file = str(
+                env("health_file_prefix", "rebootping-"),
+                if_name,
+                env("health_file_suffix", ".status"));
+        if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
+            interfaces_have_changed = true;
+            return true;
+        }
+        return false;
     };
     std::unordered_map<std::string, double> interface_to_last_mark_unhealthy_time;
     for (auto &&i : live_interfaces) {
@@ -213,13 +223,13 @@ void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::stri
             write_unhealthy(i, true);
         } else {
             interface_to_last_mark_unhealthy_time[i] = last_disable_interface
-                                                       ? last_disable_interface->event_noticed_unixtime
-                                                       : std::nan("");
+                                                               ? last_disable_interface->event_noticed_unixtime
+                                                               : std::nan("");
         }
     }
     std::vector<std::string> healthy_sorted{healthy_interfaces.begin(), healthy_interfaces.end()};
     std::sort(healthy_sorted.begin(), healthy_sorted.end(), [&](auto &&a, auto &&b) {
-      return interface_to_last_mark_unhealthy_time[a] < interface_to_last_mark_unhealthy_time[b];
+        return interface_to_last_mark_unhealthy_time[a] < interface_to_last_mark_unhealthy_time[b];
     });
     bool first_healthy = true;
     for (auto &&i : healthy_sorted) {
@@ -250,7 +260,7 @@ void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::stri
     }
 }
 
-interface_health_record& interface_health_record_store() {
+interface_health_record &interface_health_record_store() {
     static interface_health_record store(rebootping_records_dir());
     return store;
 }
