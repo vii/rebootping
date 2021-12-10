@@ -120,26 +120,4 @@ define_flat_record(arp_response_record,
 
 arp_response_record &arp_response_record_store();
 
-define_flat_record(ping_record,
-                   (double, ping_start_unixtime),
-                   (double, ping_sent_seconds),
-                   (double, ping_recv_seconds),
-                   (network_addr, ping_dest_addr),
-                   (flat_bytes_interned_ptr, ping_interface),
-                   (uint64_t, ping_cookie), );
 
-ping_record &ping_record_store();
-
-define_flat_record(last_ping_record,
-                   (double, ping_start_unixtime),
-                   (uint64_t, ping_slot),
-                   (flat_index_field<if_ip_lookup>, ping_if_index), );
-last_ping_record &last_ping_record_store();
-
-define_flat_record(interface_health_record,
-                   (double, health_decision_unixtime),
-                   (double, health_last_good_unixtime),
-                   (double, health_last_bad_unixtime),
-                   (double, health_last_active_unixtime),
-                   (flat_bytes_interned_ptr, health_interface),
-                   (flat_index_linked_field<flat_bytes_interned_ptr>, health_interface_index), );

@@ -1,5 +1,6 @@
 #include "ping_record_store.hpp"
 #include "network_flat_records.hpp"
+#include "rebootping_records_dir.hpp"
 
 namespace {
 
@@ -38,7 +39,7 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
         ping_payload.ping_slot = record.flat_iterator_index;
     });
     if_ip_lookup lookup{.lookup_if = if_tag, .lookup_addr = dst_network_addr};
-    auto last_ping = last_ping_record_store().ping_if_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
+    auto last_ping = last_ping_record_store().ping_if_ip_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
     last_ping.ping_start_unixtime() = ping_payload.ping_slot;
     last_ping.ping_start_unixtime() = ping_payload.ping_start_unixtime;
 }
@@ -82,4 +83,19 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
         default:
             break;
     }
+}
+
+ping_record &ping_record_store() {
+    static ping_record store(rebootping_records_dir());
+    return store;
+}
+
+last_ping_record &last_ping_record_store() {
+    static last_ping_record store(rebootping_records_dir());
+    return store;
+}
+
+unanswered_ping_record &unanswered_ping_record_store() {
+    static unanswered_ping_record store(rebootping_records_dir());
+    return store;
 }

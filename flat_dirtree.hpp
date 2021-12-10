@@ -67,6 +67,28 @@ struct flat_dirtree {
                                 });
     }
 
+    typename decltype(flat_timeshards)::reverse_iterator timeshard_reverse_iter_including(double unixtime) {
+        auto after = std::lower_bound(flat_timeshards.rbegin(), flat_timeshards.rend(),
+                                      unixtime,
+                                      [](std::unique_ptr<timeshard_type> const &s, double unixtime) {
+                                          return string_to_unixtime(s->flat_timeshard_name) > unixtime;
+                                      });
+        if (after == flat_timeshards.rbegin()) {
+            return after;
+        }
+        --after;
+        return after;
+    }
+
+    typename decltype(flat_timeshards)::reverse_iterator timeshard_reverse_iter_before(double unixtime) {
+        return std::upper_bound(flat_timeshards.rbegin(), flat_timeshards.rend(),
+                                unixtime,
+                                [](double unixtime, std::unique_ptr<timeshard_type> const &s) {
+                                    return string_to_unixtime(s->flat_timeshard_name) < unixtime;
+                                });
+    }
+
+
     typename decltype(flat_name_to_timeshard)::iterator insert_new_timeshard(std::string_view timeshard_name) {
         return flat_name_to_timeshard.insert_or_assign(std::string(timeshard_name),
                                                        flat_timeshards.emplace_back(
@@ -195,8 +217,8 @@ struct flat_dirtree {
     struct flat_dirtree_linked_index_iterator : std::iterator<std::input_iterator_tag, timeshard_iterator_type> {
         key_type const *iter_key = nullptr;
         obj_to_field_mapper iter_obj_to_field_mapper;
-        typename decltype(flat_timeshards)::const_iterator iter_timeshard;
-        typename decltype(flat_timeshards)::const_iterator iter_stop_timeshard;
+        typename decltype(flat_timeshards)::const_reverse_iterator iter_timeshard;
+        typename decltype(flat_timeshards)::const_reverse_iterator iter_stop_timeshard;
         timeshard_iterator_type iter_record;
 
         flat_dirtree_linked_index_iterator() = default;
@@ -305,8 +327,8 @@ struct flat_dirtree {
 
     template<typename key_type, typename obj_to_field_mapper>
     decltype(auto) dirtree_field_query(key_type const &iter_key, double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
-        auto begin = timeshard_iter_including(start_unixtime);
-        auto end = timeshard_iter_after(end_unixtime);
+        auto begin = timeshard_reverse_iter_including(end_unixtime);
+        auto end = timeshard_reverse_iter_before(start_unixtime);
         flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> end_iter(iter_key, mapper, end, end);
         flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> start_iter(iter_key, mapper, begin, end);
         return flat_dirtree_linked_index_subrange<key_type, obj_to_field_mapper>(
