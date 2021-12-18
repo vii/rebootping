@@ -17,8 +17,10 @@ std::vector<std::string> fetch_flat_timeshard_dirs(std::string_view flat_dir, st
 template<typename timeshard_type, typename timeshard_iterator_type>
 void flat_indices_commit(timeshard_type &timeshard, timeshard_iterator_type &iter) {}
 
-template<typename timeshard_type, typename timeshard_iterator_type>
+template<typename timeshard_schema_type>
 struct flat_dirtree {
+    using timeshard_type = typename timeshard_schema_type::flat_schema_timeshard;
+    using timeshard_iterator_type = typename timeshard_schema_type::flat_schema_timeshard_iterator;
     std::string flat_dir;
     std::string flat_dir_suffix;
     flat_mmap_settings flat_settings;
@@ -338,4 +340,25 @@ struct flat_dirtree {
                 start_iter,
                 end_iter);
     }
+    template<typename obj_to_field_mapper, typename... arg_types>
+    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types&& ...args) {
+        auto begin = timeshard_reverse_iter_including(end_unixtime);
+        auto end = timeshard_reverse_iter_before(start_unixtime);
+        for (auto i =begin; i!=end;++i) {
+            mapper(**i).template flat_timeshard_field_walk<timeshard_schema_type>(args...);
+        }
+    }
+    template<typename obj_to_field_mapper>
+    decltype(auto) dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
+        auto begin = timeshard_reverse_iter_including(end_unixtime);
+        auto end = timeshard_reverse_iter_before(start_unixtime);
+        std::unordered_map<typename std::decay_t<decltype(mapper(**begin))>::field_hydrated_key_type, timeshard_iterator_type > ret;
+        for (auto i =begin; i!=end;++i) {
+            mapper(**i).template flat_timeshard_field_walk<timeshard_schema_type>([&](auto&&k, auto&&v){
+                ret[k] = v;
+            });
+        }
+        return ret;
+    }
+
 };

@@ -21,8 +21,8 @@ struct limited_pcap_dumper {
     std::uintmax_t pcap_filesize = 0;
 
     bool can_write_bytes(uintmax_t len) {
-        auto ret = pcap_filesize + len < env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024) && space_estimate_for_path(pcap_dir, len) >=
-                                                                                                                 env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024);
+        auto ret = std::cmp_less(pcap_filesize + len, env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024)) && std::cmp_greater_equal(space_estimate_for_path(pcap_dir, len),
+                                                                                                                 env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024));
         if (ret) {
             pcap_filesize += len;
         }
@@ -117,7 +117,7 @@ struct limited_pcap_dumper {
             return true;
         });
         for (auto const &[port, calls] : udp_recv) {
-            if (calls < env("udp_recv_min_reported", 2)) {
+            if (std::cmp_less(calls, env("udp_recv_min_reported", 2))) {
                 continue;
             }
             auto service = services_port_name(

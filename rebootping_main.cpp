@@ -8,6 +8,7 @@
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
 #include "rebootping_records_dir.hpp"
+#include "rebootping_report_html.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
 
@@ -63,19 +64,19 @@ int main() {
 
     network_interfaces_manager interfaces_manager;
     rebootping_event("rebootping_init");
-    auto last_dump_info_time = now_unixtime();
-    double last_ping = std::nan("");
+    auto last_dump_info_time = 0;
+    double last_heartbeat = std::nan("");
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
         auto now = now_unixtime();
-        ping_health_decider decider;
-        decider.ping_all_addresses(known_ifs, now, last_ping);
-        last_ping = now;
-
-        if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {
-            last_dump_info_time = now;
-            interfaces_manager.report_html();
+        if (env("ping_heartbeat_external_addresses", true)) {
+            ping_external_addresses(known_ifs, now, last_heartbeat);
         }
+        if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {
+            report_html_dump();
+            last_dump_info_time = now;
+        }
+        last_heartbeat = now;
         std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
     }
     rebootping_event("rebootping_exit", str("global_exit_value ", global_exit_value));

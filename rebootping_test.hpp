@@ -20,7 +20,7 @@ inline void rebootping_test_fail(arg_types &&...args) {
     rebootping_test_failures.push_back(std::string{s});
 
     auto rebootping_failures_max = env("rebootping_test_failures_max", 10);
-    if (rebootping_test_failures.size() >= rebootping_failures_max) {
+    if (std::cmp_greater_equal(rebootping_test_failures.size(),rebootping_failures_max)) {
         throw std::runtime_error(str("Too many test failures: ", rebootping_test_failures.size(), " last was ", s));
     }
 }

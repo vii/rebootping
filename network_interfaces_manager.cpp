@@ -83,35 +83,7 @@ namespace {
     }
 }// namespace
 
-void network_interfaces_manager::report_html() {
-    std::ofstream out{env("output_html_dump_filename", "index.html")};
-    out << R"(
-<html>
-<head>
-    <title>rebootping</title>
-    <link rel=stylesheet href="rebootping_style.css">
-    <script type="text/javascript" src="rebootping_script.js"></script>
-</head>
-<body>
-)";
-    out << "<h1>Unhealthy events</h1>\n";
-
-    output_html_table_for_event_key(out, "interface_mark_unhealthy",
-                                    env("report_html_max_unhealthy", 1000));
-
-    out << "<h1>Lost pings</h1>\n";
-    output_html_table_for_event_key(
-            out,
-            "lost_ping",
-            env("report_html_max_lost_pings", 1000));
-
-    out << "<h1>Pings</h1>\n";
-    output_html_table_for_event_key(
-            out,
-            "icmp_echoreply",
-            env("report_html_max_pings", 20000));
-
-
+void network_interfaces_manager::report_html_dumper(std::ostream&out) {
     out << "<h1>Interfaces</h1>\n";
     for (auto const &[k, v] : watchers) {
         out << "<h2>" << k << "</h2>\n";
@@ -121,5 +93,4 @@ void network_interfaces_manager::report_html() {
             dumper->report_html_dumper(mac, out);
         }
     }
-    out << "<script>rebootping_process_html()</script>\n</body>\n";
 }

@@ -31,7 +31,8 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
 #define flat_timeshard_field_declaration(kind, name) \
     flat_timeshard_field<kind> name;
 #define flat_timeshard_iterator_member(kind, name) \
-    inline decltype(auto) name() { return flat_iterator_timeshard->name[flat_iterator_index]; }
+    inline decltype(auto) name() { return flat_iterator_timeshard->name[flat_iterator_index]; } \
+    inline decltype(auto) name() const { return flat_iterator_timeshard->name[flat_iterator_index]; }
 #define flat_timeshard_ensure_field_mmapped_statement(kind, name) \
     name.flat_timeshard_ensure_field_mmapped(len);
 #define flat_timeshard_field_schema_declaration(kind, name)                              \
@@ -52,10 +53,23 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
          double end_unixtime = std::numeric_limits<double>::max()) {                                          \
         return dirtree_field_query(                                                                           \
                 iter_key, start_unixtime, end_unixtime, [](auto &&v) -> decltype(auto) { return v.name(); }); \
+    } \
+    template<typename...arg_types>                                                                               \
+    decltype(auto)                                                                                            \
+    name(double start_unixtime = std::numeric_limits<double>::min(),                                          \
+         double end_unixtime = std::numeric_limits<double>::max(), arg_types&& ...args) {                                          \
+        return dirtree_field_walk(                                                                           \
+                start_unixtime, end_unixtime, [](auto &&v) -> decltype(auto) { return v.name(); }, args...); \
     }
 
 #define define_flat_record(record_name, ...)                                                                                                                                                                                      \
+    struct flat_timeshard_iterator_##record_name;                                                                                                                                                                                 \
+    struct flat_timeshard_##record_name;                                                                                                                                                                                 \
     struct flat_record_schema_##record_name {                                                                                                                                                                                     \
+        using flat_schema_timeshard_iterator = flat_timeshard_iterator_##record_name;                                                                                                                                                       \
+        using flat_schema_timeshard = flat_timeshard_##record_name;\
+                                                                                                                                                                                                                                  \
+\
         evaluate_for_each(flat_timeshard_field_schema_declaration, __VA_ARGS__)                                                                                                                                                   \
                                                                                                                                                                                                                                   \
                 struct flat_timeshard_schema_type : flat_timeshard_schema<evaluate_for_each_comma(flat_timeshard_field_schema_name, __VA_ARGS__)> {                                                                               \
@@ -63,7 +77,6 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
         };                                                                                                                                                                                                                        \
     };                                                                                                                                                                                                                            \
                                                                                                                                                                                                                                   \
-    struct flat_timeshard_iterator_##record_name;                                                                                                                                                                                 \
                                                                                                                                                                                                                                   \
     struct flat_timeshard_##record_name : flat_timeshard {                                                                                                                                                                        \
         using flat_timeshard_schema_type = flat_record_schema_##record_name::flat_timeshard_schema_type;                                                                                                                          \
@@ -92,10 +105,10 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
     inline flat_timeshard_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) {                                                                                                           \
         return flat_timeshard_iterator_##record_name(this, index);                                                                                                                                                                \
     }                                                                                                                                                                                                                             \
-    struct record_name : flat_dirtree<flat_timeshard_##record_name, flat_timeshard_iterator_##record_name> {                                                                                                                      \
+    struct record_name : flat_dirtree<flat_record_schema_##record_name> {                                                                                                                      \
         using flat_timeshard_schema_type = flat_record_schema_##record_name::flat_timeshard_schema_type;                                                                                                                          \
         using flat_record_schema_type = flat_record_schema_##record_name;                                                                                                                                                         \
-        explicit record_name(std::string_view dir, flat_mmap_settings const &settings = flat_mmap_settings()) : flat_dirtree<flat_timeshard_##record_name, flat_timeshard_iterator_##record_name>(dir, #record_name, settings) {} \
+        explicit record_name(std::string_view dir, flat_mmap_settings const &settings = flat_mmap_settings()) : flat_dirtree<flat_record_schema_##record_name>(dir, #record_name, settings) {} \
                                                                                                                                                                                                                                   \
         evaluate_for_each(flat_record_query_member, __VA_ARGS__)                                                                                                                                                                  \
     }

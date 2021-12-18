@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 template<typename value_type>
 struct escape_json_tag {
@@ -54,7 +55,7 @@ inline std::ostream &operator<<(std::ostream &os, escape_json_tag<int_type> i) {
     auto val = i.escape_value;
     auto abs = val >= 0 ? val : -val;
 
-    if (abs < (1 << 31)) {
+    if (std::cmp_less(abs, (1 << 31))) {
         os << val;
     } else {
         os << '"' << val << '"';
