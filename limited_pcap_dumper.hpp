@@ -22,7 +22,7 @@ struct limited_pcap_dumper {
 
     bool can_write_bytes(uintmax_t len) {
         auto ret = std::cmp_less(pcap_filesize + len, env("limited_pcap_dumper_max_dump_bytes", 100 * 1024 * 1024)) && std::cmp_greater_equal(space_estimate_for_path(pcap_dir, len),
-                                                                                                                 env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024));
+                                                                                                                                              env("limited_pcap_dumper_min_available_bytes", 1 * 1024 * 1024 * 1024));
         if (ret) {
             pcap_filesize += len;
         }

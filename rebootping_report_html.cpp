@@ -1,6 +1,6 @@
 #include "rebootping_report_html.hpp"
-#include "ping_record_store.hpp"
 #include "ping_health_decider.hpp"
+#include "ping_record_store.hpp"
 
 namespace {
     template<typename input_type>
@@ -9,7 +9,7 @@ namespace {
         return s;
     }
 
-    std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const& record) {
+    std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const &record) {
         if (std::isnan(record.health_decision_unixtime())) {
             return "Unknown";
         }
@@ -21,9 +21,9 @@ namespace {
         }
         return "Impossible";
     }
-}
+}// namespace
 
-void report_html_dump(std::ostream&out) {
+void report_html_dump(std::ostream &out) {
     out << R"(
 <html>
 <head>
@@ -50,14 +50,19 @@ void report_html_dump(std::ostream&out) {
     </thead>
     <tbody>
 )";
-    for (auto&& [interface,record]:interfaces) {
+    for (auto &&[interface, record] : interfaces) {
         out << R"(
         <tr>
-            <th>)" << escape_html(interface) << R"(</th>
-            <td class=interface_health_record_status>)" << escape_html(interface_health_record_status_string(record)) << R"(</td>
-            <td class=unixtime>)" << record.health_last_good_unixtime() << R"(</td>
-            <td class=unixtime>)" << record.health_last_bad_unixtime() << R"(</td>
-            <td class=unixtime>)" << record.health_decision_unixtime() << R"(</td>
+            <th>)"
+            << escape_html(interface) << R"(</th>
+            <td class=interface_health_record_status>)"
+            << escape_html(interface_health_record_status_string(record)) << R"(</td>
+            <td class=unixtime>)"
+            << record.health_last_good_unixtime() << R"(</td>
+            <td class=unixtime>)"
+            << record.health_last_bad_unixtime() << R"(</td>
+            <td class=unixtime>)"
+            << record.health_decision_unixtime() << R"(</td>
         </tr>
 )";
     }
@@ -67,9 +72,9 @@ void report_html_dump(std::ostream&out) {
 )";
 
 
-//    interface_health_record_store().health_interface()
+    //    interface_health_record_store().health_interface()
 
-            /*
+    /*
 
     output_html_table_for_event_key(out, "interface_mark_unhealthy",
                                     env("report_html_max_unhealthy", 1000));

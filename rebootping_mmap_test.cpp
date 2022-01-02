@@ -205,11 +205,11 @@ TEST(flat_records, check_serialisation) {
         auto after_write = serialise_all_records_as_json(test_records);
         all_kinds_records reopen_records{tmpdir.tmpdir_name};
         auto reopen = serialise_all_records_as_json(reopen_records);
-        dbg(after_write,reopen);
+        dbg(after_write, reopen);
         rebootping_test_check(after_write, ==, reopen);
         rebootping_test_check(reopen, ==, expected);
     }
-    for (int i = 0; 10 > i;++i) {
+    for (int i = 0; 10 > i; ++i) {
         all_kinds_records reopen_records{tmpdir.tmpdir_name};
         auto reopen = serialise_all_records_as_json(reopen_records);
         rebootping_test_check(reopen, ==, expected);
@@ -252,11 +252,6 @@ TEST(flat_records, reopen_versions) {
         if (std::string(e.what()).find("flat_timeshard_magic") == std::string::npos) {
             rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_magic missing ", e.what()));
         }
-
-
-
-
-
     }
 }
 

@@ -28,18 +28,18 @@ template<>
 }
 
 template<typename key_type>
-inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer& comparer, key_type const&k) {
+inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, key_type const &k) {
     return k;
 }
 template<>
-inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer& comparer, flat_bytes_interned_tag const&k) {
+inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, flat_bytes_interned_tag const &k) {
     flat_bytes_interned_tag tag = k;
-    return flat_bytes_interned_ptr{comparer.comparer_timeshard,tag}.operator std::string_view();
+    return flat_bytes_interned_ptr{comparer.comparer_timeshard, tag}.operator std::string_view();
 }
 
 template<typename key_type, typename hash_function = flat_hash_function_class>
 struct flat_timeshard_index_field {
-    using field_hydrated_key_type = decltype(flat_timeshard_field_key_rehydrate(std::declval<flat_timeshard_field_comparer&>(), std::declval<const key_type&>()));
+    using field_hydrated_key_type = decltype(flat_timeshard_field_key_rehydrate(std::declval<flat_timeshard_field_comparer &>(), std::declval<const key_type &>()));
     flat_hash<key_type, uint64_t, hash_function, flat_timeshard_field_comparer> field_hash;
     flat_timeshard_index_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
         : field_hash(dir + "/field_" + name + ".flathash", settings, flat_timeshard_field_comparer{timeshard}) {}
@@ -57,18 +57,15 @@ struct flat_timeshard_index_field {
     }
 
     template<typename timeshard_schema_type, typename walker_type>
-    void flat_timeshard_field_walk(walker_type&&walker) {
+    void flat_timeshard_field_walk(walker_type &&walker) {
         using timeshard_type = typename timeshard_schema_type::flat_schema_timeshard;
         using timeshard_iterator_type = typename timeshard_schema_type::flat_schema_timeshard_iterator;
-        field_hash.template hash_walk([&](auto&&k, auto&&v){
+        field_hash.template hash_walk([&](auto &&k, auto &&v) {
             assert(v);
-            walker(flat_timeshard_field_key_rehydrate(field_hash.hash_compare_function, k),timeshard_iterator_type(
-                                                                                                    reinterpret_cast<timeshard_type*>(&field_hash.hash_compare_function.comparer_timeshard),v-1));
+            walker(flat_timeshard_field_key_rehydrate(field_hash.hash_compare_function, k), timeshard_iterator_type(
+                                                                                                    reinterpret_cast<timeshard_type *>(&field_hash.hash_compare_function.comparer_timeshard), v - 1));
         });
     }
-
-
-
 };
 
 using flat_timeshard_index_linked_field_base = flat_timeshard_field<uint64_t>;

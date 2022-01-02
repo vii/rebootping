@@ -221,7 +221,7 @@ struct flat_dirtree {
     };
     template<typename search_context>
     struct flat_dirtree_linked_index_iterator : std::iterator<std::input_iterator_tag, timeshard_iterator_type> {
-        std::shared_ptr<search_context > iter_search_context;
+        std::shared_ptr<search_context> iter_search_context;
         typename decltype(flat_timeshards)::const_reverse_iterator iter_timeshard;
         typename decltype(flat_timeshards)::const_reverse_iterator iter_stop_timeshard;
         timeshard_iterator_type iter_record;
@@ -288,7 +288,7 @@ struct flat_dirtree {
     };
 
     template<typename search_context>
-    struct flat_dirtree_linked_index_subrange : std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context> > {
+    struct flat_dirtree_linked_index_subrange : std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context>> {
         flat_dirtree &iter_dirtree;
         std::shared_ptr<search_context> iter_search_context;
         using std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context>>::end;
@@ -296,8 +296,8 @@ struct flat_dirtree {
         flat_dirtree_linked_index_subrange(
                 flat_dirtree &tree,
                 std::shared_ptr<search_context> context,
-                const flat_dirtree_linked_index_iterator<search_context>& start,
-                const flat_dirtree_linked_index_iterator<search_context>& end)
+                const flat_dirtree_linked_index_iterator<search_context> &start,
+                const flat_dirtree_linked_index_iterator<search_context> &end)
             : std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context>>(
                       start, end),
               iter_dirtree(tree),
@@ -328,12 +328,12 @@ struct flat_dirtree {
     };
 
     template<typename key_type, typename obj_to_field_mapper>
-    decltype(auto) dirtree_field_query(key_type&&iter_key, double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
+    decltype(auto) dirtree_field_query(key_type &&iter_key, double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
         // TODO fix object lifetimes
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
-        using search_context = flat_dirtree_search_context<std::decay_t<key_type>,obj_to_field_mapper>;
-        auto context = std::make_shared<search_context>(iter_key,mapper);
+        using search_context = flat_dirtree_search_context<std::decay_t<key_type>, obj_to_field_mapper>;
+        auto context = std::make_shared<search_context>(iter_key, mapper);
         flat_dirtree_linked_index_iterator<search_context> end_iter(context, end, end);
         flat_dirtree_linked_index_iterator<search_context> start_iter(context, begin, end);
         return flat_dirtree_linked_index_subrange<search_context>(
@@ -343,10 +343,10 @@ struct flat_dirtree {
                 end_iter);
     }
     template<typename obj_to_field_mapper, typename... arg_types>
-    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types&& ...args) {
+    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types &&...args) {
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
-        for (auto i =begin; i!=end;++i) {
+        for (auto i = begin; i != end; ++i) {
             mapper(**i).template flat_timeshard_field_walk<timeshard_schema_type>(args...);
         }
     }
@@ -354,13 +354,12 @@ struct flat_dirtree {
     decltype(auto) dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
-        std::unordered_map<typename std::decay_t<decltype(mapper(**begin))>::field_hydrated_key_type, timeshard_iterator_type > ret;
-        for (auto i =begin; i!=end;++i) {
-            mapper(**i).template flat_timeshard_field_walk<timeshard_schema_type>([&](auto&&k, auto&&v){
+        std::unordered_map<typename std::decay_t<decltype(mapper(**begin))>::field_hydrated_key_type, timeshard_iterator_type> ret;
+        for (auto i = begin; i != end; ++i) {
+            mapper(**i).template flat_timeshard_field_walk<timeshard_schema_type>([&](auto &&k, auto &&v) {
                 ret[k] = v;
             });
         }
         return ret;
     }
-
 };

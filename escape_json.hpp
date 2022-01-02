@@ -54,7 +54,7 @@ template<typename int_type, std::enable_if_t<std::is_integral_v<int_type>> * = n
 inline std::ostream &operator<<(std::ostream &os, escape_json_tag<int_type> i) {
     auto val = i.escape_value;
 
-    if (std::cmp_less_equal(val, (uint64_t(1)<<53) - 1) && std::cmp_greater_equal(val, -((int64_t(1)<<53) -1))) {
+    if (std::cmp_less_equal(val, (uint64_t(1) << 53) - 1) && std::cmp_greater_equal(val, -((int64_t(1) << 53) - 1))) {
         os << val;
     } else {
         os << '"' << val << '"';

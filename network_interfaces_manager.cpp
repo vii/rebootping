@@ -83,7 +83,7 @@ namespace {
     }
 }// namespace
 
-void network_interfaces_manager::report_html_dumper(std::ostream&out) {
+void network_interfaces_manager::report_html_dumper(std::ostream &out) {
     out << "<h1>Interfaces</h1>\n";
     for (auto const &[k, v] : watchers) {
         out << "<h2>" << k << "</h2>\n";

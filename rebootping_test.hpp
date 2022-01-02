@@ -2,6 +2,7 @@
 
 #include "call_errno.hpp"
 #include "env.hpp"
+#include "flat_macro.hpp"
 #include "str.hpp"
 
 #include <filesystem>
@@ -20,19 +21,19 @@ inline void rebootping_test_fail(arg_types &&...args) {
     rebootping_test_failures.push_back(std::string{s});
 
     auto rebootping_failures_max = env("rebootping_test_failures_max", 10);
-    if (std::cmp_greater_equal(rebootping_test_failures.size(),rebootping_failures_max)) {
+    if (std::cmp_greater_equal(rebootping_test_failures.size(), rebootping_failures_max)) {
         throw std::runtime_error(str("Too many test failures: ", rebootping_test_failures.size(), " last was ", s));
     }
 }
 
-#define rebootping_test_check(a, cmp, b, ...)                                                                 \
-    do {                                                                                                      \
-        auto lhs = a;                                                                                         \
-        auto rhs = b; \
-        if (!(lhs cmp rhs)) { \
+#define rebootping_test_check(a, cmp, b, ...)                                                 \
+    do {                                                                                      \
+        auto lhs = a;                                                                         \
+        auto rhs = b;                                                                         \
+        if (!(lhs cmp rhs)) {                                                                 \
             rebootping_test_fail(#a, "=", lhs, " ", #b, "=", rhs __VA_OPT__(, ) __VA_ARGS__); \
-            dbg(lhs,rhs); \
-        }\
+            dbg(lhs, rhs);                                                                    \
+        }                                                                                     \
     } while (0)
 
 #define TEST(suite_name, test_name)                                                                                                                       \

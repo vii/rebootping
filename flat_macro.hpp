@@ -38,9 +38,9 @@
 
 
 #define dbg_arg(arg) std::cout << " " << #arg << " = " << (arg);
-#define dbg(...)                                                         \
-    do {                                                                 \
+#define dbg(...)                                                          \
+    do {                                                                  \
         std::cout << __FILE__ << ":" << __LINE__ << ": " << __FUNCTION__; \
-        evaluate_for_each_brackets(dbg_arg, __VA_ARGS__);                \
-        std::cout << std::endl;                                          \
+        evaluate_for_each_brackets(dbg_arg, __VA_ARGS__);                 \
+        std::cout << std::endl;                                           \
     } while (0)

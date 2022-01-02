@@ -235,14 +235,13 @@ struct flat_hash : hash_function {
     }
 
     template<typename Walker>
-    void hash_walk(Walker&& walker) {
-        for(uint64_t offset = hash_level_offset(0); offset < hash_mmap.mmap_allocated_len(); offset += sizeof(hash_page_type)) {
-            auto& page = hash_mmap.mmap_cast<hash_page_type>(offset);
+    void hash_walk(Walker &&walker) {
+        for (uint64_t offset = hash_level_offset(0); offset < hash_mmap.mmap_allocated_len(); offset += sizeof(hash_page_type)) {
+            auto &page = hash_mmap.mmap_cast<hash_page_type>(offset);
             for (typename hash_page_type::counter_type c = 0; c < page.page_next_value; ++c) {
                 walker(page.page_keys[c], page.page_values[c]);
             }
         }
-
     }
 };
 

@@ -16,7 +16,7 @@ event_tracker_contents event_tracker::add_event(std::unique_ptr<event_tracker_ev
         event.event_iterators.emplace_back(
                 &event_list, event_list.insert(event_list.begin(), &event));
     }
-    while (std::cmp_greater(event_by_age.size(),env("event_tracker_max_size", 1024 * 1024))) {
+    while (std::cmp_greater(event_by_age.size(), env("event_tracker_max_size", 1024 * 1024))) {
         event_by_age.pop_front();
     }
     return event;

@@ -266,13 +266,13 @@ namespace {
             CALL_ERRNO_MINUS_1(std::system, health_watcher.c_str());
         }
     }
-}
+}// namespace
 
 void ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping) {
     try {
         ping_health_decider decider;
         decider.ping_external_addresses(known_ifs, now, last_ping);
-    } catch (std::exception const&e) {
+    } catch (std::exception const &e) {
         std::cerr << "ping_external_addresses health decision failed: " << e.what() << std::endl;
     }
 }
