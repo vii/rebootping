@@ -64,7 +64,7 @@ int main() {
 
     network_interfaces_manager interfaces_manager;
     rebootping_event("rebootping_init");
-    auto last_dump_info_time = 0;
+    double last_dump_info_time = 0;
     double last_heartbeat = std::nan("");
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();

@@ -48,6 +48,11 @@ TEST(flat_index_field_suite, some_strings) {
         for (int i = 0; 1067 * 1053 > i; ++i) {
             rebootping_test_check(records.string_index(str(i)).begin()->thirteen(), ==, i);
         }
+
+        auto all_strings = records.string_index();
+        for (int i = 0; 1067 * 1053 > i; ++i) {
+            rebootping_test_check(all_strings[str(i)].thirteen(), ==, i);
+        }
     }
 
 
