@@ -1,6 +1,7 @@
 #include "network_interface_watcher.hpp"
 #include "make_unique_ptr_closer.hpp"
 #include "network_flat_records.hpp"
+#include "rebootping_event.hpp"
 
 namespace {
     void note_dns_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -273,8 +274,7 @@ void network_interface_watcher_live::open_and_process_packets() {
     }
     */
 
-    // TODO add structured logging
-    std::cerr << "Polling interface " << interface_name << std::endl;
+    rebootping_event_log("network_interface_watcher_poll_interface", interface_name);
     while (!interface_should_stop) {
         auto ret = pcap_loop(
                 interface_pcap,
