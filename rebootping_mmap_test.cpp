@@ -179,7 +179,7 @@ void test_flat_read_write(
 
 TEST(flat_records, check_serialisation) {
     tmpdir tmpdir;
-    char const *expected = R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": "3327372177", "u64": 9223372053062609372, "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
+    char const *expected = R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": 3327372177, "u64": 9223372053062609372, "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
 {"i8": 64, "i16": -15582, "i32": 1527868652, "i64": "-9223372022431611103", "u8": 12, "u16": 60254, "u32": "3327372176", "u64": 9223372053062609373, "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s1"}
 {"i8": 67, "i16": -15583, "i32": 1527868655, "i64": "-9223372022431611102", "u8": 15, "u16": 60253, "u32": "3327372179", "u64": 9223372053062609374, "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s2"}
 )";
@@ -205,14 +205,15 @@ TEST(flat_records, check_serialisation) {
         auto after_write = serialise_all_records_as_json(test_records);
         all_kinds_records reopen_records{tmpdir.tmpdir_name};
         auto reopen = serialise_all_records_as_json(reopen_records);
-        std::cout << "after_write: " << after_write << std::endl
-                  << "reopen: " << reopen << std::endl;
-        assert(after_write == reopen);
-        assert(reopen == expected);
+        dbg(after_write,reopen);
+        rebootping_test_check(after_write, ==, reopen);
+        rebootping_test_check(reopen, ==, expected);
     }
-    all_kinds_records reopen_records{tmpdir.tmpdir_name};
-    auto reopen = serialise_all_records_as_json(reopen_records);
-    assert(reopen == expected);
+    for (int i = 0; 10 > i;++i) {
+        all_kinds_records reopen_records{tmpdir.tmpdir_name};
+        auto reopen = serialise_all_records_as_json(reopen_records);
+        rebootping_test_check(reopen, ==, expected);
+    }
 }
 
 TEST(flat_records, reopen_versions) {
@@ -251,6 +252,11 @@ TEST(flat_records, reopen_versions) {
         if (std::string(e.what()).find("flat_timeshard_magic") == std::string::npos) {
             rebootping_test_fail(str("flat_records reopen_versions flat_timeshard_magic missing ", e.what()));
         }
+
+
+
+
+
     }
 }
 

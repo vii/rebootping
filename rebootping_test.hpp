@@ -28,8 +28,11 @@ inline void rebootping_test_fail(arg_types &&...args) {
 #define rebootping_test_check(a, cmp, b, ...)                                                                 \
     do {                                                                                                      \
         auto lhs = a;                                                                                         \
-        auto rhs = b;                                                                                         \
-        if (!(lhs cmp rhs)) rebootping_test_fail(#a, "=", lhs, " ", #b, "=", rhs __VA_OPT__(, ) __VA_ARGS__); \
+        auto rhs = b; \
+        if (!(lhs cmp rhs)) { \
+            rebootping_test_fail(#a, "=", lhs, " ", #b, "=", rhs __VA_OPT__(, ) __VA_ARGS__); \
+            dbg(lhs,rhs); \
+        }\
     } while (0)
 
 #define TEST(suite_name, test_name)                                                                                                                       \

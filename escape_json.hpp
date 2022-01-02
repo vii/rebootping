@@ -32,7 +32,7 @@ inline decltype(auto) escape_json(int32_t i) {
     return i;
 }
 inline decltype(auto) escape_json(uint32_t i) {
-    return escape_json_tag<decltype(i)>(i);
+    return i;
 }
 inline decltype(auto) escape_json(uint64_t u) {
     return escape_json_tag<decltype(u)>(u);
@@ -53,9 +53,8 @@ std::ostream &operator<<(std::ostream &os, escape_json_tag<double> s);
 template<typename int_type, std::enable_if_t<std::is_integral_v<int_type>> * = nullptr>
 inline std::ostream &operator<<(std::ostream &os, escape_json_tag<int_type> i) {
     auto val = i.escape_value;
-    auto abs = val >= 0 ? val : -val;
 
-    if (std::cmp_less(abs, (1 << 31))) {
+    if (std::cmp_less_equal(val, (uint64_t(1)<<53) - 1) && std::cmp_greater_equal(val, -((int64_t(1)<<53) -1))) {
         os << val;
     } else {
         os << '"' << val << '"';

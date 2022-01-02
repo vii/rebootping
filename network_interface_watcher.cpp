@@ -242,7 +242,7 @@ void network_interface_watcher_live::run_watcher_loop() {
 }
 
 void network_interface_watcher_live::open_and_process_packets() {
-    add_thread_context("pcap_interface", interface_name);
+    add_thread_context _("pcap_interface", interface_name);
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),

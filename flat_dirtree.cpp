@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <filesystem>
 
 double string_to_unixtime(std::string_view s) {
     tm parsed;

@@ -97,8 +97,9 @@ sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family) {
 
 std::string maybe_obfuscate_address_string(std::string_view address) {
     auto reveal_prefix = flat_env::obfuscate_address_reveal_prefix();
-    if (flat_env::obfuscate_address() && address.size() > reveal_prefix) {
-        return str(address.substr(0, reveal_prefix), "...");
+    std::string ellipsis = "...";
+    if (flat_env::obfuscate_address() && std::cmp_greater(address.size(), reveal_prefix+ellipsis.size())) {
+        return str(address.substr(0, reveal_prefix), ellipsis);
     } else {
         return std::string{address};
     }

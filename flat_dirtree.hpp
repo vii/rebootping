@@ -214,11 +214,14 @@ struct flat_dirtree {
                 end);
     }
 
-
     template<typename key_type, typename obj_to_field_mapper>
+    struct flat_dirtree_search_context {
+        key_type const search_key;
+        obj_to_field_mapper const search_obj_to_field_mapper;
+    };
+    template<typename search_context>
     struct flat_dirtree_linked_index_iterator : std::iterator<std::input_iterator_tag, timeshard_iterator_type> {
-        key_type const *iter_key = nullptr;
-        obj_to_field_mapper iter_obj_to_field_mapper;
+        std::shared_ptr<search_context > iter_search_context;
         typename decltype(flat_timeshards)::const_reverse_iterator iter_timeshard;
         typename decltype(flat_timeshards)::const_reverse_iterator iter_stop_timeshard;
         timeshard_iterator_type iter_record;
@@ -226,19 +229,18 @@ struct flat_dirtree {
         flat_dirtree_linked_index_iterator() = default;
 
         flat_dirtree_linked_index_iterator(
-                key_type const &key,
-                obj_to_field_mapper mapper,
+                std::shared_ptr<search_context> context,
                 decltype(iter_timeshard) const &start,
-                decltype(iter_stop_timeshard) const &end) : iter_key(&key), iter_obj_to_field_mapper(std::forward<obj_to_field_mapper>(mapper)),
+                decltype(iter_stop_timeshard) const &end) : iter_search_context(context),
                                                             iter_timeshard(start), iter_stop_timeshard(end) {
             step_timeshard();
         }
 
         bool operator==(flat_dirtree_linked_index_iterator const &i) const {
-            if (!!iter_key != !!i.iter_key) {
+            if (!!iter_search_context != !!i.iter_search_context) {
                 return false;
             }
-            if (iter_key && (*iter_key != *i.iter_key)) {
+            if (!!iter_search_context && (iter_search_context->search_key != i.iter_search_context->search_key)) {
                 return false;
             }
             return iter_timeshard == i.iter_timeshard &&
@@ -251,12 +253,12 @@ struct flat_dirtree {
         void step_timeshard() {
             while (iter_timeshard != iter_stop_timeshard) {
                 if (iter_record) {
-                    auto next_index = iter_obj_to_field_mapper(iter_record);
+                    auto next_index = iter_search_context->search_obj_to_field_mapper(iter_record);
                     if (next_index) {
                         iter_record.flat_iterator_index = next_index - 1;
                         break;
                     }
-                } else if (auto lookup = iter_obj_to_field_mapper(**iter_timeshard).flat_timeshard_index_lookup_key(*iter_key)) {
+                } else if (auto lookup = iter_search_context->search_obj_to_field_mapper(**iter_timeshard).flat_timeshard_index_lookup_key(iter_search_context->search_key)) {
                     iter_record = timeshard_iterator_type(&**iter_timeshard, *lookup - 1);
                     break;
                 }
@@ -285,23 +287,21 @@ struct flat_dirtree {
         }
     };
 
-    template<typename key_type, typename obj_to_field_mapper>
-    struct flat_dirtree_linked_index_subrange : std::ranges::subrange<flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper>> {
+    template<typename search_context>
+    struct flat_dirtree_linked_index_subrange : std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context> > {
         flat_dirtree &iter_dirtree;
-        key_type const &iter_key;
-        obj_to_field_mapper iter_obj_to_field_mapper;
-        using std::ranges::subrange<flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper>>::end;
+        std::shared_ptr<search_context> iter_search_context;
+        using std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context>>::end;
 
         flat_dirtree_linked_index_subrange(
                 flat_dirtree &tree,
-                key_type const &key,
-                obj_to_field_mapper &mapper,
-                flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> start,
-                flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> end)
-            : std::ranges::subrange<flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper>>(start, end),
+                std::shared_ptr<search_context> context,
+                const flat_dirtree_linked_index_iterator<search_context>& start,
+                const flat_dirtree_linked_index_iterator<search_context>& end)
+            : std::ranges::subrange<flat_dirtree_linked_index_iterator<search_context>>(
+                      start, end),
               iter_dirtree(tree),
-              iter_key(key),
-              iter_obj_to_field_mapper(mapper) {}
+              iter_search_context(context) {}
 
         timeshard_iterator_type add_if_missing(double unixtime = now_unixtime()) {
             return add_if_missing([](timeshard_iterator_type const &iter) {}, unixtime);
@@ -311,32 +311,34 @@ struct flat_dirtree {
         template<typename add_function>
         timeshard_iterator_type add_if_missing(add_function &&f, double unixtime = now_unixtime()) {
             timeshard_type *last_timeshard = iter_dirtree.unixtime_to_timeshard(unixtime);
-            auto &timeshard_field = iter_obj_to_field_mapper(*last_timeshard);
-            if (auto lookup = timeshard_field.flat_timeshard_index_lookup_key(iter_key)) {
+            auto &timeshard_field = iter_search_context->search_obj_to_field_mapper(*last_timeshard);
+            if (auto lookup = timeshard_field.flat_timeshard_index_lookup_key(iter_search_context->search_key)) {
                 return timeshard_iterator_type(last_timeshard, *lookup - 1);
             }
             return iter_dirtree.add_flat_record(*last_timeshard, [&](timeshard_iterator_type &iter) {
                 f(iter);
-                timeshard_field.flat_timeshard_index_set_key(iter_key, iter);
+                timeshard_field.flat_timeshard_index_set_key(iter_search_context->search_key, iter);
             });
         }
 
         void set_index(timeshard_iterator_type const &iter) {
-            auto &timeshard_field = iter_obj_to_field_mapper(*iter.flat_iterator_timeshard);
-            timeshard_field.flat_timeshard_index_set_key(iter_key, iter);
+            auto &timeshard_field = iter_search_context->search_obj_to_field_mapper(*iter.flat_iterator_timeshard);
+            timeshard_field.flat_timeshard_index_set_key(iter_search_context->search_key, iter);
         }
     };
 
     template<typename key_type, typename obj_to_field_mapper>
-    decltype(auto) dirtree_field_query(key_type const &iter_key, double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
+    decltype(auto) dirtree_field_query(key_type&&iter_key, double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
+        // TODO fix object lifetimes
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
-        flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> end_iter(iter_key, mapper, end, end);
-        flat_dirtree_linked_index_iterator<key_type, obj_to_field_mapper> start_iter(iter_key, mapper, begin, end);
-        return flat_dirtree_linked_index_subrange<key_type, obj_to_field_mapper>(
+        using search_context = flat_dirtree_search_context<std::decay_t<key_type>,obj_to_field_mapper>;
+        auto context = std::make_shared<search_context>(iter_key,mapper);
+        flat_dirtree_linked_index_iterator<search_context> end_iter(context, end, end);
+        flat_dirtree_linked_index_iterator<search_context> start_iter(context, begin, end);
+        return flat_dirtree_linked_index_subrange<search_context>(
                 *this,
-                iter_key,
-                mapper,
+                context,
                 start_iter,
                 end_iter);
     }
