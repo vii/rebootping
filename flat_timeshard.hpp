@@ -138,6 +138,9 @@ struct flat_timeshard {
         timeshard_header_ref().flat_timeshard_index_next = index + 1;
     }
 
+    uint64_t flat_timeshard_index_next() {
+        return timeshard_header_ref().flat_timeshard_index_next;
+    }
 
     void timeshard_reload_interned_strings() {
         interned_strings.clear();

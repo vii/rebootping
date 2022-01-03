@@ -39,7 +39,7 @@ inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_co
 
 template<typename key_type, typename hash_function = flat_hash_function_class>
 struct flat_timeshard_index_field {
-    using field_hydrated_key_type = decltype(flat_timeshard_field_key_rehydrate(std::declval<flat_timeshard_field_comparer &>(), std::declval<const key_type &>()));
+    using field_hydrated_key_type = std::decay_t<decltype(flat_timeshard_field_key_rehydrate(std::declval<flat_timeshard_field_comparer &>(), std::declval<const key_type &>()))>;
     flat_hash<key_type, uint64_t, hash_function, flat_timeshard_field_comparer> field_hash;
     flat_timeshard_index_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
         : field_hash(dir + "/field_" + name + ".flathash", settings, flat_timeshard_field_comparer{timeshard}) {}

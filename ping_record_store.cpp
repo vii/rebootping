@@ -67,6 +67,11 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
         std::cout << "record_store_process_packet overflow timeshard for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago; slot " << ping_payload.ping_slot;
         return;
     }
+    if (timeshard->flat_timeshard_index_next() <= ping_payload.ping_slot) {
+        std::cout << "record_store_process_packet; ping_slot too large " << std::endl;
+        dbg(timeshard->flat_timeshard_index_next(), ping_payload.ping_slot);
+        return;
+    }
     auto record = timeshard->timeshard_iterator_at(ping_payload.ping_slot);
     if (ping_payload.ping_cookie != record.ping_cookie()) {
         std::cout << "record_store_process_packet bad cookie for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago";

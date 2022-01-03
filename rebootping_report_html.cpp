@@ -2,6 +2,11 @@
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
 
+#include "env.hpp"
+#include <filesystem>
+#include <fstream>
+
+
 namespace {
     template<typename input_type>
     std::string escape_html(input_type &&in) {
@@ -24,7 +29,7 @@ namespace {
 }// namespace
 
 void report_html_dump(std::ostream &out) {
-    out << R"(
+    out << std::setprecision(15) << R"(
 <html>
 <head>
     <title>rebootping</title>
@@ -70,26 +75,38 @@ void report_html_dump(std::ostream &out) {
     </tbody>
 </table>
 )";
+    // TODO pings
 
+    std::unordered_map<macaddr, std::unordered_set<network_addr>> mac_to_addrs;
+    for (auto &&[mac, record] : arp_response_record_store().arp_macaddr_index()) {
+        for (auto &&[addr, count] : record.arp_addresses().known_keys_and_counts()) {
+            mac_to_addrs[mac].insert(addr);
+        }
+    }
+    for (auto &&[mac, addrs] : mac_to_addrs) {
+        out << "<h2>" << maybe_obfuscate_address(mac) << " "
+            << oui_manufacturer_name(mac);
 
-    //    interface_health_record_store().health_interface()
-
-    /*
-
-    output_html_table_for_event_key(out, "interface_mark_unhealthy",
-                                    env("report_html_max_unhealthy", 1000));
-
-    out << "<h1>Lost pings</h1>\n";
-    output_html_table_for_event_key(
-            out,
-            "lost_ping",
-            env("report_html_max_lost_pings", 1000));
-
-    out << "<h1>Pings</h1>\n";
-    output_html_table_for_event_key(
-            out,
-            "icmp_echoreply",
-            env("report_html_max_pings", 20000));
-*/
+        for (auto &&addr : addrs) {
+            char dns[1024];
+            auto sa = sockaddr_from_network_addr(addr);
+            auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
+            auto dns_str = ret ? gai_strerror(ret) : dns;
+            out << " " << dns_str;
+        }
+        out << "</h2>\n";
+        // TODO pcap file
+        // TODO open ports
+        // TODO outbound dns
+    }
     out << "<script>rebootping_process_html()</script>\n</body>\n";
-};
+}
+void report_html_dump() {
+    auto out_filename = env("output_html_dump_filename", "index.html");
+    auto out_filename_tmp = out_filename + ".tmp";
+    {
+        std::ofstream out(out_filename_tmp);
+        report_html_dump(out);
+    }
+    std::filesystem::rename(out_filename_tmp, out_filename);
+}
