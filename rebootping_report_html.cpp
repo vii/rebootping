@@ -78,21 +78,21 @@ void report_html_dump(std::ostream &out) {
     // TODO pings
 
     std::unordered_map<macaddr, std::unordered_set<network_addr>> mac_to_addrs;
-    for (auto &&[mac, record] : arp_response_record_store().arp_macaddr_index()) {
+    for (auto &&[interface_mac, record] : arp_response_record_store().arp_macaddr_index()) {
         for (auto &&[addr, count] : record.arp_addresses().known_keys_and_counts()) {
-            mac_to_addrs[mac].insert(addr);
+            mac_to_addrs[interface_mac.lookup_addr].insert(addr);
         }
     }
     for (auto &&[mac, addrs] : mac_to_addrs) {
-        out << "<h2>" << maybe_obfuscate_address(mac) << " "
-            << oui_manufacturer_name(mac);
+        out << "<h2>" << escape_html(maybe_obfuscate_address(mac)) << " "
+            << escape_html(oui_manufacturer_name(mac));
 
         for (auto &&addr : addrs) {
             char dns[1024];
             auto sa = sockaddr_from_network_addr(addr);
             auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
             auto dns_str = ret ? gai_strerror(ret) : dns;
-            out << " " << dns_str;
+            out << " " << escape_html(dns_str);
         }
         out << "</h2>\n";
         // TODO pcap file

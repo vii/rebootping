@@ -45,49 +45,78 @@ inline uint64_t flat_hash_function(macaddr const &k) {
     return flat_hash_function(k.as_number());
 }
 
-struct if_ip_lookup {
-    flat_bytes_interned_tag lookup_if;
-    network_addr lookup_addr;
+template<typename addr>
+struct if_addr_lookup {
+    flat_bytes_interned_tag lookup_if = flat_bytes_interned_tag{0};
+    addr lookup_addr;
 
-    inline bool operator==(if_ip_lookup const &other) const {
+    inline bool operator==(if_addr_lookup<addr> const &other) const {
         return lookup_if.bytes_offset == other.lookup_if.bytes_offset && lookup_addr == other.lookup_addr;
     }
 };
-template<>
-inline uint64_t flat_hash_function(if_ip_lookup const &k) {
+template<typename if_addr_lookup_addr>
+concept if_addr_lookup_concept = requires(if_addr_lookup_addr a) {
+    { a.lookup_if } -> std::same_as<flat_bytes_interned_tag>;
+    {a.lookup_addr};
+};
+
+template<typename addr>
+inline uint64_t flat_hash_function(if_addr_lookup<addr> const &k) {
     return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_if.bytes_offset);
 }
 
-template<>
-[[nodiscard]] inline decltype(auto) flat_hash_prepare_key_maybe<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](auto &&input) -> std::optional<if_ip_lookup> {
-        if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
+template<typename addr>
+decltype(auto) flat_timeshard_field_compare_prepare_key(if_addr_lookup<addr> *) {
+    return [](flat_timeshard &comparer_timeshard, auto &&input) {
+        if constexpr (std::is_constructible_v<if_addr_lookup<addr>, decltype(input)>) {
             return input;
         } else {
-            auto s = comparer.comparer_timeshard.timeshard_lookup_interned_string(input.first);
+            return if_addr_lookup<if_addr_lookup<addr>>{
+                    comparer_timeshard.smap_store_string(input.first),
+                                                        input.second};
+        }
+    };
+}
+template<typename addr>
+decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(if_addr_lookup<addr> *) {
+    return [](flat_timeshard &comparer_timeshard, auto &&input) -> std::optional<if_addr_lookup<addr>> {
+        if constexpr (std::is_constructible_v<if_addr_lookup<addr>, decltype(input)>) {
+            return input;
+        } else {
+            auto s = comparer_timeshard.timeshard_lookup_interned_string(input.first);
             if (!s) {
                 return std::nullopt;
             }
-            return if_ip_lookup{s.value(), input.second};
+            return if_addr_lookup<addr>{s.value(), input.second};
         }
     };
 }
 
-template<>
-[[nodiscard]] inline decltype(auto) flat_hash_prepare_key<if_ip_lookup, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](auto &&input) {
-        if constexpr (std::is_constructible_v<if_ip_lookup, decltype(input)>) {
-            return input;
-        } else {
-            return if_ip_lookup{comparer.comparer_timeshard.smap_store_string(input.first), input.second};
-        }
-    };
-}
-
+template<typename addr>
 inline bool flat_hash_compare(
-        flat_timeshard_field_comparer const &comparer, if_ip_lookup const &lhs, if_ip_lookup const &rhs) {
+        flat_timeshard_field_comparer const &comparer, if_addr_lookup<addr> const &lhs, if_addr_lookup<addr> const &rhs) {
     return flat_hash_compare(comparer, lhs.lookup_if, rhs.lookup_if) && flat_hash_compare(comparer, lhs.lookup_addr, rhs.lookup_addr);
 }
+
+
+using if_ip_lookup = if_addr_lookup<network_addr>;
+using if_mac_lookup = if_addr_lookup<macaddr>;
+
+namespace std {
+    template<>
+    struct hash<if_ip_lookup> {
+        inline size_t operator()(if_ip_lookup const &a) const {
+            return flat_hash_function(a);
+        }
+    };
+
+    template<>
+    struct hash<if_mac_lookup> {
+        inline size_t operator()(if_mac_lookup const &a) const {
+            return flat_hash_function(a);
+        }
+    };
+}// namespace std
 
 
 define_flat_record(dns_response_record,
@@ -116,6 +145,6 @@ using network_addr_collector = flat_mfu_mru<network_addr, 10, 3>;
 
 define_flat_record(arp_response_record,
                    (network_addr_collector, arp_addresses),
-                   (flat_index_field<macaddr>, arp_macaddr_index));
+                   (flat_index_field<if_mac_lookup>, arp_macaddr_index));
 
 arp_response_record &arp_response_record_store();

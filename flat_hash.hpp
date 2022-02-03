@@ -111,23 +111,27 @@ struct flat_hash_function_class {
 };
 
 struct flat_hash_compare_function_class {
+    template<typename key_type, typename input_type>
+    std::optional<key_type> compare_prepare_key_maybe(input_type &&i) const {
+        return {(key_type) i};
+    }
+    template<typename key_type, typename input_type>
+    key_type compare_prepare_key(input_type &&i) const {
+        return (key_type) i;
+    }
 };
 
 template<typename comparer, typename lhs_type, typename rhs_type, typename... fallback_overload>
 inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&...ignored) { return lhs == rhs; }
 
-template<typename key_type, typename comparer>
-inline decltype(auto) flat_hash_prepare_key_maybe(comparer const &) {
-    return [](auto const &input) -> std::optional<key_type> {
-        return {(key_type) input};
-    };
+template<typename key_type, typename comparer, typename input_type>
+inline decltype(auto) flat_hash_prepare_key_maybe(comparer const &c, input_type &&i) {
+    return c.template compare_prepare_key_maybe<key_type>(i);
 }
 
-template<typename key_type, typename comparer>
-inline decltype(auto) flat_hash_prepare_key(comparer const &) {
-    return [](auto const &input) {
-        return (key_type) input;
-    };
+template<typename key_type, typename comparer, typename input_type>
+inline decltype(auto) flat_hash_prepare_key(comparer const &c, input_type &&i) {
+    return c.template compare_prepare_key<key_type>(i);
 }
 
 template<typename key_type, typename value_type, typename hash_function = flat_hash_function_class, typename compare_function = flat_hash_compare_function_class, unsigned marker_bits = 8>
@@ -175,7 +179,7 @@ struct flat_hash : hash_function {
 
     template<typename input_key>
     value_type *hash_find_key(input_key &&ik) const {
-        auto mk = flat_hash_prepare_key_maybe<key_type>(hash_compare_function)(ik);
+        auto mk = flat_hash_prepare_key_maybe<key_type>(hash_compare_function, ik);
         if (!mk) {
             return nullptr;
         }
@@ -194,7 +198,7 @@ struct flat_hash : hash_function {
 
     template<typename input_key>
     value_type &hash_add_key(input_key &&ik) {
-        auto k = flat_hash_prepare_key<key_type>(hash_compare_function)(ik);
+        auto k = flat_hash_prepare_key<key_type>(hash_compare_function, ik);
 
         auto rotated_hash = (*this)(k);
         unsigned level;
@@ -215,7 +219,7 @@ struct flat_hash : hash_function {
 
     template<typename input_key>
     bool hash_del_key(input_key &&ik) {
-        auto mk = flat_hash_maybe_prepare_key<key_type>(hash_compare_function)(ik);
+        auto mk = flat_hash_maybe_prepare_key<key_type>(hash_compare_function, ik);
         if (!mk) {
             return false;
         }

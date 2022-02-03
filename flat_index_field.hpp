@@ -3,34 +3,55 @@
 #include "flat_bytes_field.hpp"
 #include "flat_timeshard.hpp"
 
+template<typename key_type, typename... reduce_priority>
+decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(key_type *, reduce_priority...) {
+    return [](flat_timeshard &, auto &&i) {
+        return flat_hash_compare_function_class().compare_prepare_key_maybe<key_type>(i);
+    };
+}
+template<typename key_type, typename... reduce_priority>
+decltype(auto) flat_timeshard_field_compare_prepare_key(key_type *, reduce_priority...) {
+    return [](flat_timeshard &, auto &&i) {
+        return flat_hash_compare_function_class().compare_prepare_key<key_type>(i);
+    };
+}
+
 struct flat_timeshard_field_comparer {
     flat_timeshard &comparer_timeshard;
+
+    template<typename key_type, typename input_type>
+    std::optional<key_type> compare_prepare_key_maybe(input_type &&i) const {
+        return flat_timeshard_field_compare_prepare_key_maybe((key_type *) nullptr)(comparer_timeshard, i);
+    }
+    template<typename key_type, typename input_type>
+    key_type compare_prepare_key(input_type &&i) const {
+        return flat_timeshard_field_compare_prepare_key((key_type *) nullptr)(comparer_timeshard, i);
+    }
 };
+
+template<>
+decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(flat_bytes_interned_tag *) {
+    return [](flat_timeshard &comparer_timeshard, auto &&i) {
+        return comparer_timeshard.timeshard_lookup_interned_string(i);
+    };
+}
+template<>
+decltype(auto) flat_timeshard_field_compare_prepare_key(flat_bytes_interned_tag *) {
+    return [](flat_timeshard &comparer_timeshard, auto &&i) {
+        return comparer_timeshard.smap_store_string(i);
+    };
+}
 
 inline bool flat_hash_compare(
         flat_timeshard_field_comparer const &, flat_bytes_interned_tag const &lhs, flat_bytes_interned_tag const &rhs) {
     return lhs.bytes_offset == rhs.bytes_offset;
 }
 
-
-template<>
-[[nodiscard]] inline decltype(auto) flat_hash_prepare_key_maybe<flat_bytes_interned_tag, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](std::string_view input) -> std::optional<flat_bytes_interned_tag> {
-        return comparer.comparer_timeshard.timeshard_lookup_interned_string(input);
-    };
-}
-
-template<>
-[[nodiscard]] inline decltype(auto) flat_hash_prepare_key<flat_bytes_interned_tag, flat_timeshard_field_comparer>(flat_timeshard_field_comparer const &comparer) {
-    return [&](auto const &input) {
-        return comparer.comparer_timeshard.smap_store_string(input);
-    };
-}
-
 template<typename key_type>
 inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, key_type const &k) {
     return k;
 }
+
 template<>
 inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, flat_bytes_interned_tag const &k) {
     flat_bytes_interned_tag tag = k;

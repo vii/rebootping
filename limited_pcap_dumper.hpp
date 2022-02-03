@@ -129,3 +129,7 @@ struct limited_pcap_dumper {
         out << "</ul>\n";
     }
 };
+
+inline std::string limited_pcap_dumper_filename(std::string_view interface_name, const macaddr &ma) {
+    return str("dump_", interface_name, "_", ma, ".pcap");
+}

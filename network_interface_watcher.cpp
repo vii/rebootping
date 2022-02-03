@@ -4,6 +4,8 @@
 #include "rebootping_event.hpp"
 
 namespace {
+    std::string_view interface_name = "TODO move this";
+
     void note_dns_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen);
         if (!p) {
@@ -174,7 +176,12 @@ namespace {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        arp_response_record_store().arp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).arp_addresses().notice_key(p->arp_spa.s_addr);
+        arp_response_record_store().arp_macaddr_index(std::make_pair(
+                                                              interface_name,
+                                                              p->ether_shost))
+                .add_if_missing(timeval_to_unixtime(h->ts))
+                .arp_addresses()
+                .notice_key(p->arp_spa.s_addr);
     }
 }// namespace
 
@@ -299,7 +306,7 @@ limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const ma
                                              ma,
                                              std::make_unique<limited_pcap_dumper>(
                                                      interface_pcap,
-                                                     str("dump_", interface_name, "_", ma, ".pcap"))))
+                                                     limited_pcap_dumper_filename(interface_name, ma))))
                     .first;
     }
     return *i->second;
