@@ -30,13 +30,13 @@ struct flat_timeshard_field_comparer {
 };
 
 template<>
-decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(flat_bytes_interned_tag *) {
+inline decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(flat_bytes_interned_tag *) {
     return [](flat_timeshard &comparer_timeshard, auto &&i) {
         return comparer_timeshard.timeshard_lookup_interned_string(i);
     };
 }
 template<>
-decltype(auto) flat_timeshard_field_compare_prepare_key(flat_bytes_interned_tag *) {
+inline decltype(auto) flat_timeshard_field_compare_prepare_key(flat_bytes_interned_tag *) {
     return [](flat_timeshard &comparer_timeshard, auto &&i) {
         return comparer_timeshard.smap_store_string(i);
     };

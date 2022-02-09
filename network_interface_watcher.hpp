@@ -44,7 +44,7 @@ struct network_interface_watcher_live : network_interface_watcher {
     std::atomic<bool> interface_should_stop = false;
     std::atomic<bool> interface_has_stopped = false;
     std::thread interface_thread;
-    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_dumpers;
+    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_per_macaddr_dumpers;
 
     explicit network_interface_watcher_live(std::string_view name);
 
@@ -58,4 +58,8 @@ struct network_interface_watcher_live : network_interface_watcher {
 
     void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
     ~network_interface_watcher_live();
+
+    bool operator!() const {
+        return interface_has_stopped.load();
+    }
 };

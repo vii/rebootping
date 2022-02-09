@@ -343,7 +343,7 @@ struct flat_dirtree {
                 end_iter);
     }
     template<typename obj_to_field_mapper, typename... arg_types>
-    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types &&...args) {
+    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types &&... args) {
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
         for (auto i = begin; i != end; ++i) {

@@ -26,4 +26,8 @@ struct network_interfaces_manager {
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
 
     void report_html_dumper(std::ostream &out);
+
+    bool operator!()const {
+        return watchers.empty();
+    }
 };

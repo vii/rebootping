@@ -5,7 +5,7 @@
 
 template<typename function, typename holder>
 inline decltype(auto) flat_record_apply_per_field(function &&f, holder &&record) {
-    return std::apply([&](auto &&...field) {
+    return std::apply([&](auto &&... field) {
         (f(field, record), ...);
     },
                       typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
@@ -57,7 +57,7 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
     template<typename... arg_types>                                                                           \
     decltype(auto)                                                                                            \
     name(double start_unixtime = std::numeric_limits<double>::min(),                                          \
-         double end_unixtime = std::numeric_limits<double>::max(), arg_types && ...args) {                    \
+         double end_unixtime = std::numeric_limits<double>::max(), arg_types && ... args) {                   \
         return dirtree_field_walk(                                                                            \
                 start_unixtime, end_unixtime, [](auto &&v) -> decltype(auto) { return v.name(); }, args...);  \
     }

@@ -6,11 +6,11 @@
 #include "now_unixtime.hpp"
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
+#include "rebootping_event.hpp"
 #include "rebootping_records_dir.hpp"
 #include "rebootping_report_html.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
-#include "rebootping_event.hpp"
 
 #include <pcap/pcap.h>
 
@@ -34,8 +34,6 @@ void signal_callback_handler(int signum) {
 }
 
 
-
-
 int main() {
     signal(SIGINT, signal_callback_handler);
     signal(SIGTERM, signal_callback_handler);
@@ -46,6 +44,11 @@ int main() {
     double last_heartbeat = std::nan("");
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
+        if (!interfaces_manager) {
+            std::cerr << "rebootping_main not monitoring any interfaces" << std::endl;
+            break;
+        }
+        std::cerr << "monitoring " << interfaces_manager.watchers.begin()->first << std::endl;
         auto now = now_unixtime();
         if (env("ping_heartbeat_external_addresses", true)) {
             ping_external_addresses(known_ifs, now, last_heartbeat);

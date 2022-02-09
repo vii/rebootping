@@ -112,7 +112,7 @@ int64_t simple_hash(std::string_view s) {
 
 template<typename field_type>
 decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view field_name) {
-    return (field_type) (row_num ^ simple_hash(field_name));
+    return (field_type)(row_num ^ simple_hash(field_name));
 }
 
 template<>

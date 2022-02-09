@@ -262,9 +262,10 @@ void network_interface_watcher_live::open_and_process_packets() {
         std::cerr << "pcap_open_live " << interface_name << " " << errbuf << std::endl;
         return;
     }
-    auto pcap_closer = make_unique_ptr_closer(interface_pcap, [](pcap_t *p) {
+    auto pcap_closer = make_unique_ptr_closer(interface_pcap, [&](pcap_t *p) {
         if (p) {
             pcap_close(p);
+            interface_pcap = nullptr;
         }
     });
     /* filter all non ICMP traffic
@@ -299,9 +300,9 @@ void network_interface_watcher_live::open_and_process_packets() {
 
 limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const macaddr &ma) {
     std::lock_guard _{watcher_mutex};
-    auto i = interface_dumpers.find(ma);
-    if (i == interface_dumpers.end()) {
-        i = interface_dumpers.insert(
+    auto i = interface_per_macaddr_dumpers.find(ma);
+    if (i == interface_per_macaddr_dumpers.end()) {
+        i = interface_per_macaddr_dumpers.insert(
                                      std::make_pair(
                                              ma,
                                              std::make_unique<limited_pcap_dumper>(
@@ -334,8 +335,8 @@ network_interface_watcher_live::~network_interface_watcher_live() {
 
 limited_pcap_dumper *network_interface_watcher_live::existing_dumper_for_macaddr(const macaddr &ma) {
     std::lock_guard _{watcher_mutex};
-    auto i = interface_dumpers.find(ma);
-    if (i == interface_dumpers.end()) {
+    auto i = interface_per_macaddr_dumpers.find(ma);
+    if (i == interface_per_macaddr_dumpers.end()) {
         return nullptr;
     }
     return i->second.get();

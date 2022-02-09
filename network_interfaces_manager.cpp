@@ -30,16 +30,8 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
             }
         }
     }
-    std::erase_if(watchers, [](auto const &item) {
-        auto const &[key, value] = item;
-        return value->interface_has_stopped.load();
-    });
     for (auto const &[k, v] : watchers) {
-        if (known_ifs.find(k) == known_ifs.end()) {
-            v->interface_should_stop.store(true);
-        } else {
-            v->interface_should_stop.store(false);
-        }
+        v->interface_should_stop.store(!known_ifs.contains(k));
     }
     for (auto const &[k, v] : known_ifs) {
         if (watchers.find(k) != watchers.end()) {
@@ -47,6 +39,10 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
         }
         watchers.emplace(k, std::make_unique<network_interface_watcher_live>(k));
     }
+    std::erase_if(watchers, [](auto const &item) {
+      auto const &[key, value] = item;
+      return !(*value);
+    });
     return known_ifs;
 }
 
@@ -89,7 +85,7 @@ void network_interfaces_manager::report_html_dumper(std::ostream &out) {
         out << "<h2>" << k << "</h2>\n";
 
         std::lock_guard _{v->watcher_mutex};
-        for (auto const &[mac, dumper] : v->interface_dumpers) {
+        for (auto const &[mac, dumper] : v->interface_per_macaddr_dumpers) {
             dumper->report_html_dumper(mac, out);
         }
     }

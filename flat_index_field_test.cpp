@@ -91,7 +91,7 @@ TEST(flat_index_field_suite, just_ints) {
     for (int i = 0; max_i > i; ++i) {
         auto r = *records.uint32_index(index_lookup(i)).begin();
         rebootping_test_check(r.thirteen(), ==, i * 13);
-        rebootping_test_check(r.seven(), ==, (uint8_t) (i * 7));
+        rebootping_test_check(r.seven(), ==, (uint8_t)(i * 7));
 
         auto again = *records.uint64_index(index_lookup(i)).begin();
         rebootping_test_check(r, ==, again);

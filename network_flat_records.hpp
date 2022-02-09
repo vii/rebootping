@@ -56,7 +56,8 @@ struct if_addr_lookup {
 };
 template<typename if_addr_lookup_addr>
 concept if_addr_lookup_concept = requires(if_addr_lookup_addr a) {
-    { a.lookup_if } -> std::same_as<flat_bytes_interned_tag>;
+    { a.lookup_if }
+    ->std::same_as<flat_bytes_interned_tag>;
     {a.lookup_addr};
 };
 
@@ -71,9 +72,9 @@ decltype(auto) flat_timeshard_field_compare_prepare_key(if_addr_lookup<addr> *) 
         if constexpr (std::is_constructible_v<if_addr_lookup<addr>, decltype(input)>) {
             return input;
         } else {
-            return if_addr_lookup<if_addr_lookup<addr>>{
+            return if_addr_lookup<addr>{
                     comparer_timeshard.smap_store_string(input.first),
-                                                        input.second};
+                    input.second};
         }
     };
 }
