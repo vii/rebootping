@@ -30,18 +30,15 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
             }
         }
     }
-    for (auto const &[k, v] : watchers) {
-        v->interface_should_stop.store(!known_ifs.contains(k));
-    }
     for (auto const &[k, v] : known_ifs) {
         if (watchers.find(k) != watchers.end()) {
             continue;
         }
-        watchers.emplace(k, std::make_unique<network_interface_watcher_live>(k));
+        watchers.emplace(k, network_interface_watcher_thread(k));
     }
     std::erase_if(watchers, [](auto const &item) {
       auto const &[key, value] = item;
-      return !(*value);
+      return value->loop_is_stopping();
     });
     return known_ifs;
 }
@@ -79,14 +76,3 @@ namespace {
     }
 }// namespace
 
-void network_interfaces_manager::report_html_dumper(std::ostream &out) {
-    out << "<h1>Interfaces</h1>\n";
-    for (auto const &[k, v] : watchers) {
-        out << "<h2>" << k << "</h2>\n";
-
-        std::lock_guard _{v->watcher_mutex};
-        for (auto const &[mac, dumper] : v->interface_per_macaddr_dumpers) {
-            dumper->report_html_dumper(mac, out);
-        }
-    }
-}

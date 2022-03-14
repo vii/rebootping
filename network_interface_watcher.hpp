@@ -21,45 +21,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include "loop_thread.hpp"
 
-struct network_interface_watcher {
-    std::string interface_name;
-    explicit network_interface_watcher(std::string_view name) : interface_name(name) {}
-    void learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes);
+void network_interface_watcher_learn_from_pcap_file(std::string const &filename);
+std::unique_ptr<loop_thread> network_interface_watcher_thread(std::string interface_name);
 
-    static void learn_from_pcap_file(std::string const &filename);
-
-    network_interface_watcher(network_interface_watcher const &) = delete;
-
-    network_interface_watcher(network_interface_watcher &&) = delete;
-
-    network_interface_watcher &operator=(network_interface_watcher const &) = delete;
-
-    network_interface_watcher &operator=(network_interface_watcher &&) = delete;
-};
-
-struct network_interface_watcher_live : network_interface_watcher {
-    pcap_t *interface_pcap = nullptr;
-    std::mutex watcher_mutex;
-    std::atomic<bool> interface_should_stop = false;
-    std::atomic<bool> interface_has_stopped = false;
-    std::thread interface_thread;
-    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_per_macaddr_dumpers;
-
-    explicit network_interface_watcher_live(std::string_view name);
-
-    void run_watcher_loop();
-
-    void open_and_process_packets();
-
-    limited_pcap_dumper &dumper_for_macaddr(macaddr const &ma);
-
-    limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const &ma);
-
-    void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
-    ~network_interface_watcher_live();
-
-    bool operator!() const {
-        return interface_has_stopped.load();
-    }
-};

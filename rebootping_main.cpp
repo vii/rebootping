@@ -44,11 +44,15 @@ int main() {
     double last_heartbeat = std::nan("");
     while (!global_exit_value) {
         auto known_ifs = interfaces_manager.discover_known_ifs();
-        if (!interfaces_manager) {
+        if (interfaces_manager.has_nothing_to_manage()) {
             std::cerr << "rebootping_main not monitoring any interfaces" << std::endl;
             break;
         }
-        std::cerr << "monitoring " << interfaces_manager.watchers.begin()->first << std::endl;
+        std::cerr << "rebootping_monitoring";
+        for (auto&&[k,v]:known_ifs) {
+            std::cerr << " " << k;
+        }
+        std::cerr << std::endl;
         auto now = now_unixtime();
         if (env("ping_heartbeat_external_addresses", true)) {
             ping_external_addresses(known_ifs, now, last_heartbeat);

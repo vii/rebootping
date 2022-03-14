@@ -19,15 +19,14 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include "loop_thread.hpp"
 
 struct network_interfaces_manager {
-    std::unordered_map<std::string, std::unique_ptr<network_interface_watcher_live>> watchers;
+    std::unordered_map<std::string, std::unique_ptr<loop_thread>> watchers;
 
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
 
-    void report_html_dumper(std::ostream &out);
-
-    bool operator!()const {
+    bool has_nothing_to_manage()const {
         return watchers.empty();
     }
 };

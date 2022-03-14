@@ -3,8 +3,19 @@
 #include "network_flat_records.hpp"
 #include "rebootping_event.hpp"
 
-namespace {
-    std::string_view interface_name = "TODO move this";
+struct network_interface_watcher {
+    std::string interface_name;
+    explicit network_interface_watcher(std::string_view name) : interface_name(name) {}
+    void learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes);
+
+
+    network_interface_watcher(network_interface_watcher const &) = delete;
+
+    network_interface_watcher(network_interface_watcher &&) = delete;
+
+    network_interface_watcher &operator=(network_interface_watcher const &) = delete;
+
+    network_interface_watcher &operator=(network_interface_watcher &&) = delete;
 
     void note_dns_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
         auto p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen);
@@ -183,7 +194,43 @@ namespace {
                 .arp_addresses()
                 .notice_key(p->arp_spa.s_addr);
     }
-}// namespace
+};
+
+struct network_interface_watcher_live : network_interface_watcher, loop_thread {
+    pcap_t *interface_pcap = nullptr;
+    std::mutex watcher_mutex;
+    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_per_macaddr_dumpers;
+
+    explicit network_interface_watcher_live(std::string_view name);
+
+    bool loop_run_once() override {
+        add_thread_context _("pcap_interface", interface_name);
+
+        auto ret = pcap_loop(
+                interface_pcap,
+                -1 /*cnt*/,
+                [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+                  ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
+                },
+                (u_char *) this);
+        if (ret == -1) {
+            std::cerr << "pcap_loop " << interface_name << " " << pcap_geterr(interface_pcap) << std::endl;
+            return true;
+        }
+        return false;
+    }
+
+    void loop_started() override;
+
+    limited_pcap_dumper &dumper_for_macaddr(macaddr const &ma);
+
+    limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const &ma);
+
+    void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
+    ~network_interface_watcher_live() override = default;
+};
+
+
 
 void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     auto ether = wire_header<ether_header>::header_from_packet(bytes, h->caplen);
@@ -207,7 +254,7 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
     }
 }
 
-void network_interface_watcher::learn_from_pcap_file(std::string const &filename) {
+void network_interface_watcher_learn_from_pcap_file(std::string const &filename) {
     network_interface_watcher watcher(filename);
     char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -235,22 +282,12 @@ void network_interface_watcher::learn_from_pcap_file(std::string const &filename
 
 
 network_interface_watcher_live::network_interface_watcher_live(std::string_view name)
-    : network_interface_watcher(name),
-      interface_thread(&network_interface_watcher_live::run_watcher_loop, this) {
+    : network_interface_watcher(name), loop_thread() {
+
+    loop_spawn();
 }
 
-void network_interface_watcher_live::run_watcher_loop() {
-    try {
-        open_and_process_packets();
-    } catch (...) {
-        interface_has_stopped.store(true);
-        throw;
-    }
-    interface_has_stopped.store(true);
-}
-
-void network_interface_watcher_live::open_and_process_packets() {
-    add_thread_context _("pcap_interface", interface_name);
+void network_interface_watcher_live::loop_started() {
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),
@@ -260,6 +297,7 @@ void network_interface_watcher_live::open_and_process_packets() {
             errbuf);
     if (!interface_pcap) {
         std::cerr << "pcap_open_live " << interface_name << " " << errbuf << std::endl;
+        loop_stop();
         return;
     }
     auto pcap_closer = make_unique_ptr_closer(interface_pcap, [&](pcap_t *p) {
@@ -283,19 +321,6 @@ void network_interface_watcher_live::open_and_process_packets() {
     */
 
     rebootping_event_log("network_interface_watcher_poll_interface", interface_name);
-    while (!interface_should_stop) {
-        auto ret = pcap_loop(
-                interface_pcap,
-                -1 /*cnt*/,
-                [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-                    ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
-                },
-                (u_char *) this);
-        if (ret == -1) {
-            std::cerr << "pcap_loop " << interface_name << " " << pcap_geterr(interface_pcap) << std::endl;
-            break;
-        }
-    }
 }
 
 limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const macaddr &ma) {
@@ -323,14 +348,9 @@ void network_interface_watcher_live::process_one_packet(const struct pcap_pkthdr
         source_dumper.pcap_dump_packet(h, bytes);
     }
     learn_from_packet(h, bytes);
-    if (interface_should_stop.load()) {
+    if (loop_is_stopping()) {
         pcap_breakloop(interface_pcap);
     }
-}
-
-network_interface_watcher_live::~network_interface_watcher_live() {
-    interface_should_stop.store(true);
-    interface_thread.join();
 }
 
 limited_pcap_dumper *network_interface_watcher_live::existing_dumper_for_macaddr(const macaddr &ma) {
@@ -340,4 +360,8 @@ limited_pcap_dumper *network_interface_watcher_live::existing_dumper_for_macaddr
         return nullptr;
     }
     return i->second.get();
+}
+
+std::unique_ptr<loop_thread> network_interface_watcher_thread(std::string interface_name) {
+    return std::make_unique<network_interface_watcher_live>(interface_name);
 }
