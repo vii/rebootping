@@ -48,11 +48,6 @@ int main() {
             std::cerr << "rebootping_main not monitoring any interfaces" << std::endl;
             break;
         }
-        std::cerr << "rebootping_monitoring";
-        for (auto&&[k,v]:known_ifs) {
-            std::cerr << " " << k;
-        }
-        std::cerr << std::endl;
         auto now = now_unixtime();
         if (env("ping_heartbeat_external_addresses", true)) {
             ping_external_addresses(known_ifs, now, last_heartbeat);

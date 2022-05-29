@@ -38,7 +38,7 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
     }
     std::erase_if(watchers, [](auto const &item) {
       auto const &[key, value] = item;
-      return value->loop_is_stopping();
+      return value->loop_has_finished();
     });
     return known_ifs;
 }

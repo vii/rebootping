@@ -1,18 +1,14 @@
 #include "rebootping_report_html.hpp"
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
-
+#include "escape_json.hpp"
 #include "env.hpp"
+
 #include <filesystem>
 #include <fstream>
 
 
 namespace {
-    template<typename input_type>
-    std::string escape_html(input_type &&in) {
-        auto s = str(in);//TODO actually escape it
-        return s;
-    }
 
     std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const &record) {
         if (std::isnan(record.health_decision_unixtime())) {

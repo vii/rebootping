@@ -198,8 +198,8 @@ struct network_interface_watcher {
 
 struct network_interface_watcher_live : network_interface_watcher, loop_thread {
     pcap_t *interface_pcap = nullptr;
-    std::mutex watcher_mutex;
-    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> interface_per_macaddr_dumpers;
+    std::mutex dumpers_mutex;
+    std::unordered_map<macaddr, std::unique_ptr<limited_pcap_dumper>> macaddr_dumpers;
 
     explicit network_interface_watcher_live(std::string_view name);
 
@@ -227,7 +227,12 @@ struct network_interface_watcher_live : network_interface_watcher, loop_thread {
     limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const &ma);
 
     void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
-    ~network_interface_watcher_live() override = default;
+    ~network_interface_watcher_live() override  {
+        if (interface_pcap) {
+            pcap_close(interface_pcap);
+            interface_pcap = nullptr;
+        }
+    }
 };
 
 
@@ -300,12 +305,6 @@ void network_interface_watcher_live::loop_started() {
         loop_stop();
         return;
     }
-    auto pcap_closer = make_unique_ptr_closer(interface_pcap, [&](pcap_t *p) {
-        if (p) {
-            pcap_close(p);
-            interface_pcap = nullptr;
-        }
-    });
     /* filter all non ICMP traffic
     bpf_program filter;
     auto c = pcap_compile(interface_pcap, &filter, "proto 1", 1 // optimize
@@ -324,10 +323,10 @@ void network_interface_watcher_live::loop_started() {
 }
 
 limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const macaddr &ma) {
-    std::lock_guard _{watcher_mutex};
-    auto i = interface_per_macaddr_dumpers.find(ma);
-    if (i == interface_per_macaddr_dumpers.end()) {
-        i = interface_per_macaddr_dumpers.insert(
+    std::lock_guard _{dumpers_mutex};
+    auto i = macaddr_dumpers.find(ma);
+    if (i == macaddr_dumpers.end()) {
+        i = macaddr_dumpers.insert(
                                      std::make_pair(
                                              ma,
                                              std::make_unique<limited_pcap_dumper>(
@@ -354,9 +353,9 @@ void network_interface_watcher_live::process_one_packet(const struct pcap_pkthdr
 }
 
 limited_pcap_dumper *network_interface_watcher_live::existing_dumper_for_macaddr(const macaddr &ma) {
-    std::lock_guard _{watcher_mutex};
-    auto i = interface_per_macaddr_dumpers.find(ma);
-    if (i == interface_per_macaddr_dumpers.end()) {
+    std::lock_guard _{dumpers_mutex};
+    auto i = macaddr_dumpers.find(ma);
+    if (i == macaddr_dumpers.end()) {
         return nullptr;
     }
     return i->second.get();

@@ -19,14 +19,21 @@ protected:
                 }
                 loop_count++;
             }
+
+            try {
+                loop_stopped();
+            } catch (...) {
+                loop_finished.store(true);
+                throw;
+            }
             loop_finished.store(true);
-            loop_stopped();
         });
     }
     loop_thread() = default;
 public:
     loop_thread(loop_thread const &) = delete;
-    loop_thread(loop_thread &&) = delete;
+    loop_thread& operator=(loop_thread const&) = delete;
+
     inline virtual ~loop_thread() {
         loop_should_stop.store(true);
         loop_std_thread.join();
@@ -35,10 +42,10 @@ public:
     inline void loop_stop() {
         loop_should_stop.store(true);
     }
-    inline bool loop_is_stopping() const {
+    [[nodiscard]] inline bool loop_is_stopping() const {
         return loop_should_stop.load();
     }
-    inline bool loop_has_finished() const {
+    [[nodiscard]] inline bool loop_has_finished() const {
         return loop_finished.load();
     }
 

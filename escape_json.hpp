@@ -1,5 +1,7 @@
 #pragma once
 
+#include "str.hpp"
+
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -61,4 +63,10 @@ inline std::ostream &operator<<(std::ostream &os, escape_json_tag<int_type> i) {
         os << '"' << val << '"';
     }
     return os;
+}
+std::string escape_html_string(std::string const& s);
+
+template<typename input_type>
+inline std::string escape_html(input_type &&in) {
+    return escape_html_string(str(in));
 }

@@ -46,3 +46,19 @@ std::ostream &operator<<(std::ostream &os, escape_json_tag<double> s) {
         return os << std::setprecision(std::numeric_limits<double>::digits10 + 1) << s.escape_value;
     }
 }
+
+std::string escape_html_string(std::string const& s) {
+    std::string ret;
+    ret.reserve(s.size());
+    for (auto c:s) {
+        switch (c) {
+            case '"': ret += "&quot;"; break;
+            case '\'': ret += "&apos;"; break;
+            case '&': ret += "&amp;"; break;
+            case '<': ret += "&lt;"; break;
+            case '>': ret += "&gt;"; break;
+            default: ret += c; break;
+        }
+    }
+    return ret;
+}
