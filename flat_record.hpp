@@ -25,6 +25,32 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
                                 record);
     os << "}";
 }
+template<typename holder>
+inline void flat_record_schema_as_json(std::ostream&os) {
+    os <<"{\"flat_fields\": {";
+    bool first = true;
+    auto dump_field = [&](auto&&schema) {
+        if (!first) {
+            os << ", ";
+        }
+        first = false;
+        os << escape_json(schema.flat_field_name()) << ": {";
+        os << "\"flat_field_size_bytes\": " << schema.flat_field_size_bytes() << ", ";
+        os << "\"flat_field_type_string\": " << escape_json(schema.flat_field_type_string());
+        os << "}";
+    };
+    std::apply([&](auto &&... field) {
+        (dump_field(field), ...);
+    },
+               typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
+    os<<"}}";
+}
+template<typename holder>
+inline std::string flat_record_schema_as_json() {
+    std::ostringstream oss;
+    flat_record_schema_as_json<holder>(oss);
+    return oss.str();
+}
 
 #define flat_timeshard_field_constructor(kind, name) \
     , name(*this, #name, dir, settings)
@@ -37,8 +63,8 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
     name.flat_timeshard_ensure_field_mmapped(len);
 #define flat_timeshard_field_schema_declaration(kind, name)                              \
     struct name : flat_timeshard_field_schema<kind> {                                    \
-        char const *flat_field_name() { return #name; }                                  \
-        char const *flat_field_type_string() { return #kind; }                           \
+        constexpr char const *flat_field_name() { return #name; }                        \
+        constexpr char const *flat_field_type_string() { return #kind; }                           \
         template<typename holder_type>                                                   \
         decltype(auto) flat_field_value(holder_type &&holder) { return holder.name(); }; \
     };

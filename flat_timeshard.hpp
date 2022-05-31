@@ -215,6 +215,7 @@ constexpr size_t flat_field_sizeof() {
 template<typename field_type>
 struct flat_timeshard_field_schema {
     using field_value_type = field_type;
+    constexpr size_t flat_field_size_bytes() const { return sizeof(field_type); }
 };
 
 template<typename... field_schemas>

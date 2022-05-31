@@ -20,3 +20,8 @@ arp_response_record &arp_response_record_store() {
     static arp_response_record store(rebootping_records_dir());
     return store;
 }
+
+ip_contact_record &ip_contact_record_store() {
+    static ip_contact_record store(rebootping_records_dir());
+    return store;
+}

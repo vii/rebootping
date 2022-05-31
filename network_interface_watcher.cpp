@@ -122,11 +122,11 @@ struct network_interface_watcher {
             return;
         }
 
-        if ((p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) == ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
-            auto port = ntohs(p->th_sport);
-            if (port < env("tcp_recv_tracking_min_port", 30000)) {
+        auto port = ntohs(p->th_sport);
+        switch (p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
+            case ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK):
                 tcp_accept_record_store().tcp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).tcp_ports().notice_key(port);
-            }
+                break;
         }
     }
 
@@ -157,6 +157,10 @@ struct network_interface_watcher {
                 ether_header,
                 ip_header>::header_from_packet(bytes, h->caplen);
 
+        if (!p) {
+            return;
+        }
+
         switch (p->ip_p) {
             case (uint8_t) ip_protocol::UDP:
                 note_udp_packet(h, bytes);
@@ -165,6 +169,11 @@ struct network_interface_watcher {
                 note_tcp_packet(h, bytes);
                 break;
         }
+
+        ip_contact_record_store().ip_contact_macaddr_index(p->ether_shost)
+                .add_if_missing(timeval_to_unixtime(h->ts))
+                .ip_contact_addrs()
+                .notice_key(p->ip_dst.s_addr);
     }
 
     void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {

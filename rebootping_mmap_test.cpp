@@ -177,6 +177,10 @@ void test_flat_read_write(
     assert(!incorrect);
 }
 
+TEST(flat_records, just_json_schema) {
+    rebootping_test_check(flat_record_schema_as_json<all_kinds_records>(),==,R"({"flat_fields": {"i8": {"flat_field_size_bytes": 1, "flat_field_type_string": "int8_t"}, "i16": {"flat_field_size_bytes": 2, "flat_field_type_string": "int16_t"}, "i32": {"flat_field_size_bytes": 4, "flat_field_type_string": "int32_t"}, "i64": {"flat_field_size_bytes": 8, "flat_field_type_string": "int64_t"}, "u8": {"flat_field_size_bytes": 1, "flat_field_type_string": "uint8_t"}, "u16": {"flat_field_size_bytes": 2, "flat_field_type_string": "uint16_t"}, "u32": {"flat_field_size_bytes": 4, "flat_field_type_string": "uint32_t"}, "u64": {"flat_field_size_bytes": 8, "flat_field_type_string": "uint64_t"}, "f": {"flat_field_size_bytes": 4, "flat_field_type_string": "float"}, "d": {"flat_field_size_bytes": 8, "flat_field_type_string": "double"}, "s": {"flat_field_size_bytes": 16, "flat_field_type_string": "std::string_view"}}})");
+}
+
 TEST(flat_records, check_serialisation) {
     tmpdir tmpdir;
     char const *expected = R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": 3327372177, "u64": "9223372053062609372", "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
