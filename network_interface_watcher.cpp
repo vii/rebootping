@@ -3,6 +3,8 @@
 #include "network_flat_records.hpp"
 #include "rebootping_event.hpp"
 
+#include <mutex>
+
 struct network_interface_watcher {
     std::string interface_name;
     explicit network_interface_watcher(std::string_view name) : interface_name(name) {}

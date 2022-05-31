@@ -43,36 +43,4 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
     return known_ifs;
 }
 
-namespace {
-    void output_html_table_for_event_key(std::ostream &stream, std::string const &key, uint64_t max_count) {
-        bool header_output = false;
-        std::vector<std::string> column_names;
-
-        global_event_tracker.walk_key(key, [&](event_tracker_contents const &contents) {
-            if (!max_count--) {
-                return false;
-            }
-            if (!header_output) {
-                header_output = true;
-                stream << "<table class=rebootping_table><thead><tr>\n<th class=unixtime>event_noticed_unixtime</th>\n";
-                for (auto const &[k, _] : contents) {
-                    stream << "\t<th>" << k << "</th>\n";
-                    column_names.push_back(k);
-                }
-                stream << "</tr></thead><tbody>\n";
-            }
-            stream << "\t<tr>\n\t\t<td class=unixtime>" << std::setprecision(18) << contents.event_noticed_unixtime
-                   << "</td>\n";
-            for (auto &&c : column_names) {
-                stream << "\t\t<td>" << contents[c] << "</td>\n";
-            }
-            stream << "\t</tr>\n";
-            return true;
-        });
-
-        if (header_output) {
-            stream << "</tbody></table>\n";
-        }
-    }
-}// namespace
 

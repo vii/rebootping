@@ -2,6 +2,8 @@
 #include "network_flat_records.hpp"
 #include "rebootping_records_dir.hpp"
 
+#include <mutex>
+
 namespace {
 
     std::mutex &ping_record_store_mutex() {

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "env.hpp"
-#include "event_tracker.hpp"
 #include "space_estimate_for_path.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"

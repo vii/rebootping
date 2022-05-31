@@ -1,6 +1,5 @@
 #pragma once
 
-#include "event_tracker.hpp"
 #include "file_contents_cache.hpp"
 #include "limited_pcap_dumper.hpp"
 #include "network_interface_watcher.hpp"
