@@ -1,5 +1,6 @@
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
+#include "rebootping_event.hpp"
 #include "rebootping_records_dir.hpp"
 #include <regex>
 
@@ -233,6 +234,7 @@ namespace {
                     if_name,
                     env("health_file_suffix", ".status"));
             if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
+                rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy",  if_name);
                 interfaces_have_changed = true;
                 return true;
             }
@@ -252,8 +254,8 @@ namespace {
         bool first_healthy = true;
         for (auto &&i : healthy_sorted) {
             if (!first_healthy &&
-                !(if_records[i].health_last_mark_unhealthy_unixtime() >=
-                  now - env("wait_before_mark_interface_healthy_seconds", 3600.0))) {
+                if_records[i].health_last_mark_unhealthy_unixtime() <
+                  now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
                 break;
             }
             first_healthy = false;

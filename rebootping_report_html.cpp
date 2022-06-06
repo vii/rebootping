@@ -26,6 +26,7 @@ namespace {
 
 void report_html_dump(std::ostream &out) {
     out << std::setprecision(15) << R"(
+<!DOCTYPE html>
 <html>
 <head>
     <title>rebootping</title>
@@ -71,12 +72,12 @@ void report_html_dump(std::ostream &out) {
     </tbody>
 </table>
 )";
-    // TODO pings
     out << "<h1>Ping history</h1>\n";
     out << "<div class=rebootping_js_eval>rebootping_record_graph({flat_schema: ";
     flat_record_schema_as_json<ping_record>(out);
-    out << ", flat_dir: " << escape_json(ping_record_store().flat_dir) << ",\n";
-    out << " flat_dir_suffix: " << escape_json(ping_record_store().flat_dir_suffix) << ",\n flat_timeshards: [";
+    out << ", flat_dir: " << escape_json(ping_record_store().flat_dir) << ",\n"
+        << " flat_timeshard_index_next_offset: " << offsetof(flat_timeshard_header, flat_timeshard_index_next) << ",\n"
+        << " flat_dir_suffix: " << escape_json(ping_record_store().flat_dir_suffix) << ",\n flat_timeshards: [";
 
     bool first_timeshard = true;
     for (auto&&shard:ping_record_store().flat_timeshards) {
