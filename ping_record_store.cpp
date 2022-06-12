@@ -40,9 +40,8 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
         record.ping_cookie() = ping_payload.ping_cookie;
         ping_payload.ping_slot = record.flat_iterator_index;
     });
-    if_ip_lookup lookup{.lookup_if = if_tag, .lookup_addr = dst_network_addr};
-    auto last_ping = last_ping_record_store().ping_if_ip_index(lookup).add_if_missing(ping_payload.ping_start_unixtime);
-    last_ping.ping_start_unixtime() = ping_payload.ping_slot;
+    auto last_ping = last_ping_record_store().ping_if_ip_index(std::make_pair(ping_if, dst_network_addr)).add_if_missing(ping_payload.ping_start_unixtime);
+    last_ping.ping_slot() = ping_payload.ping_slot;
     last_ping.ping_start_unixtime() = ping_payload.ping_start_unixtime;
 }
 

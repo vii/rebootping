@@ -121,13 +121,14 @@ namespace {
 
             if (!std::isnan(last_ping)) {
                 for (auto &&dest : target_ping_addrs) {
-                    auto replies = last_ping_record_store().ping_if_ip_index(std::make_pair(if_name, dest), last_ping);
-                    if (!replies.empty()) {
-                        auto last_reply = *replies.begin();
+                    auto last_sent_ping = last_ping_record_store().ping_if_ip_index(std::make_pair(if_name, dest), last_ping);
+                    if (!last_sent_ping.empty()) {
+                        auto last_reply = *last_sent_ping.begin();
                         auto timeshard = ping_record_store().unixtime_to_timeshard(last_reply.ping_start_unixtime(), false);
                         if (timeshard && last_reply.ping_start_unixtime() >= last_ping) {
                             auto ping_record = timeshard->timeshard_iterator_at(last_reply.ping_slot());
-                            if (ping_record.ping_recv_seconds() >= last_ping) {
+
+                            if (ping_record.ping_start_unixtime() >= last_ping) {
                                 if_to_good_target[if_name].insert(dest);
                             } else {
                                 unanswered_ping_record_store().add_flat_record(last_reply.ping_start_unixtime(), [&](auto &&r) {
@@ -234,7 +235,7 @@ namespace {
                     if_name,
                     env("health_file_suffix", ".status"));
             if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
-                rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy",  if_name);
+                rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy", if_name);
                 interfaces_have_changed = true;
                 return true;
             }
@@ -255,7 +256,7 @@ namespace {
         for (auto &&i : healthy_sorted) {
             if (!first_healthy &&
                 if_records[i].health_last_mark_unhealthy_unixtime() <
-                  now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
+                        now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
                 break;
             }
             first_healthy = false;
