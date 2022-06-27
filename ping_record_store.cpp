@@ -50,7 +50,7 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
     if (!packet) {
         return;
     }
-    if (ntohs(packet->ether_type) != (uint16_t) ether_type::IPv4) {
+    if (ntohs(packet->ether_type_or_len) != (uint16_t) ether_type::IPv4) {
         return;
     }
     if (packet->ip_p != (uint8_t) ip_protocol::ICMP) {

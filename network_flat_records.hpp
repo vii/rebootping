@@ -169,3 +169,8 @@ define_flat_record(ip_contact_record,
                    (ip_collector, ip_contact_addrs),
                    (flat_index_field<macaddr>, ip_contact_macaddr_index));
 ip_contact_record &ip_contact_record_store();
+
+define_flat_record(stp_record,
+                   (double, stp_unixtime),
+                   (flat_index_field<macaddr>, stp_source_macaddr_index));
+stp_record &stp_record_store();

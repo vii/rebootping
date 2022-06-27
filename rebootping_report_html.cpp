@@ -100,6 +100,12 @@ void report_html_dump(std::ostream &out) {
             mac_to_addrs[interface_mac.lookup_addr].insert(addr);
         }
     }
+
+    std::unordered_map<macaddr, double> mac_to_last_stp;
+    for (auto &&stp : stp_record_store().stp_source_macaddr_index()) {
+        mac_to_last_stp[stp.first] = stp.second.stp_unixtime();
+    }
+
     for (auto &&[mac, addrs] : mac_to_addrs) {
         out << "<div class=monitored_mac>";
         out << "<h2><span class=mac>" << escape_html(maybe_obfuscate_address(mac)) << "</span> "
@@ -121,6 +127,9 @@ void report_html_dump(std::ostream &out) {
             }
         }
         out << "</h2>\n";
+        if (auto i = mac_to_last_stp.find(mac); i != mac_to_last_stp.end()) {
+            out << "<h3 class=last_stp_router_update><span class=unixtime>" << i->second << "</span></h3>" << std::endl;
+        }
         for (auto&&if_name:mac_to_interfaces[mac]) {
             out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>" << std::endl;
         }

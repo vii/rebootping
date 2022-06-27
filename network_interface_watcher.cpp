@@ -205,6 +205,18 @@ struct network_interface_watcher {
                 .arp_addresses()
                 .notice_key(p->arp_spa.s_addr);
     }
+
+    void note_stp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
+        auto p = wire_header<ether_header, llc_stp_bpdu>::header_from_packet(bytes, h->caplen);
+        if (!p) {
+            return;
+        }
+
+        auto unixtime = timeval_to_unixtime(h->ts);
+        stp_record_store()
+                .stp_source_macaddr_index(p->ether_shost)
+                .add_if_missing(unixtime).stp_unixtime() = unixtime;
+    }
 };
 
 struct network_interface_watcher_live : network_interface_watcher, loop_thread {
@@ -254,7 +266,8 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
         return;
     }
 
-    switch (ntohs(ether->ether_type)) {
+    uint16_t host_ether_type_or_len = ntohs(ether->ether_type_or_len);
+    switch (host_ether_type_or_len) {
         case (uint16_t) ether_type::IPv4:
             note_ip_packet(h, bytes);
 
@@ -267,6 +280,16 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
         case (uint16_t) ether_type::ARP:
             note_arp_packet_sent(h, bytes);
             break;
+        default:
+            if (host_ether_type_or_len <= 1500) {
+                if (auto p = wire_header<ether_header, llc_stp_bpdu>::header_from_packet(bytes, h->caplen)) {
+                    if (p->llc_dsap == llc_lsap::LLC_LSAP_STP
+                        && p->llc_ssap == llc_lsap::LLC_LSAP_STP
+                        && p->llc_control == llc_ctrl::LLC_CTRL_STP) {
+                        note_stp_packet(h, bytes);
+                    }
+                }
+            }
     }
 }
 

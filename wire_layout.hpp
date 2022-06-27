@@ -104,7 +104,7 @@ std::ostream &operator<<(std::ostream &os, sockaddr const &s);
 struct ether_header {
     macaddr ether_dhost;
     macaddr ether_shost;
-    u_int16_t ether_type;
+    u_int16_t ether_type_or_len;
 } __attribute__((__packed__));
 
 struct alignas(u_int16_t) ip_header {
@@ -185,6 +185,30 @@ enum class dns_qclass : uint16_t {
     DNS_QCLASS_INET = 1,
 };
 
+
+enum class llc_lsap : uint8_t {
+    LLC_LSAP_STP = 0x42,
+};
+
+enum class llc_ctrl : uint8_t {
+    LLC_CTRL_STP = 3,
+};
+
+struct llc_stp_bpdu {
+    llc_lsap llc_dsap;
+    llc_lsap llc_ssap;
+    llc_ctrl llc_control;
+    uint16_t stp_protocol;
+    uint8_t stp_version;
+    uint8_t stp_message_type;
+    uint8_t stp_flags;
+    uint16_t stp_root;
+    macaddr stp_root_macaddr;
+    uint32_t stp_root_cost;
+    uint16_t stp_bridge;
+    macaddr stp_bridge_macaddr;
+    // more fields skipped
+};
 
 template<typename... packet_types>
 struct wire_header : packet_types... {
