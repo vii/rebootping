@@ -10,7 +10,7 @@ void rebootping_event_log(std::string_view event_name, std::string_view event_me
     rebootping_event_log().add_flat_record([&](auto &&record) {
         record.event_unixtime() = now_unixtime();
         record.event_name() = event_name;
-        record.event_compilation_timestamp() = __TIMESTAMP__;
+        record.event_compilation_timestamp() = __DATE__ " " __TIME__;
         record.event_git_sha() = flat_git_sha_string;
         record.event_git_unixtime() = flat_git_unixtime;
         record.event_message() = event_message;
