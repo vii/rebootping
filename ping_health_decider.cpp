@@ -111,7 +111,6 @@ namespace {
 
     void ping_health_decider::ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping) {
 
-        ping_sender sender;
         for (auto const &[if_name, addrs] : known_ifs) {
             if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) {
                 continue;
@@ -119,156 +118,177 @@ namespace {
             live_interfaces.insert(if_name);
             if_to_good_target[if_name];// force creation
 
-            if (!std::isnan(last_ping)) {
-                for (auto &&dest : target_ping_addrs) {
-                    auto last_sent_ping = last_ping_record_store().ping_if_ip_index(std::make_pair(if_name, dest), last_ping);
-                    if (!last_sent_ping.empty()) {
-                        auto last_reply = *last_sent_ping.begin();
-                        auto timeshard = ping_record_store().unixtime_to_timeshard(last_reply.ping_start_unixtime(), false);
-                        if (timeshard && last_reply.ping_start_unixtime() >= last_ping) {
-                            auto ping_record = timeshard->timeshard_iterator_at(last_reply.ping_slot());
+            if (std::isnan(last_ping)) {
+                continue;
+            }
+            for (auto &&dest : target_ping_addrs) {
+                bool ping_was_lost = true;
+                double last_ping_start_unixtime = 0;
+                uint64_t last_ping_slot;
+                {
+                    // TODO allow const access to this kind of lookup so that we can use the read lock
+                    auto read_last_ping_record_store = write_locked_reference(last_ping_record_store());
+                    auto last_sent_ping = read_last_ping_record_store->ping_if_ip_index(std::make_pair(if_name, dest), last_ping);
+                    if (last_sent_ping.empty()) {
+                        continue;
+                    }
+                    auto last_reply = *last_sent_ping.begin();
+                    last_ping_start_unixtime = last_reply.ping_start_unixtime();
+                    last_ping_slot = last_reply.ping_slot();
+                }
+                {
+                    auto read_ping_record_store = read_locked_reference(ping_record_store());
 
-                            if (ping_record.ping_start_unixtime() >= last_ping) {
-                                if_to_good_target[if_name].insert(dest);
-                            } else {
-                                unanswered_ping_record_store().add_flat_record(last_reply.ping_start_unixtime(), [&](auto &&r) {
-                                    r.ping_start_unixtime() = last_reply.ping_start_unixtime();
-                                    r.ping_slot() = last_reply.ping_slot();
-                                    r.flat_iterator_timeshard->ping_if_ip_index.index_linked_field_add(std::make_pair(if_name, dest), r);
-                                });
-                            }
+                    auto timeshard = read_ping_record_store->unixtime_to_timeshard(last_ping_start_unixtime);
+                    if (timeshard && last_ping_start_unixtime >= last_ping) {
+                        auto ping_record = timeshard->timeshard_iterator_at(last_ping_slot);
+                        if (ping_record.ping_start_unixtime() >= last_ping) {
+                            if_to_good_target[if_name].insert(dest);
+                            ping_was_lost = false;
                         }
                     }
                 }
-            }
-
-
-            // send pings
-            for (sockaddr const &src_sockaddr : addrs) {
-                for (auto &&dest : target_ping_addrs) {
-                    try {
-                        for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
-                            sender.send_ping(src_sockaddr, sockaddr_from_network_addr(dest), if_name);
-                        }
-                    } catch (std::exception const &e) {
-                        std::cerr << "cannot ping on " << if_name << ": " << e.what() << std::endl;
-                    }
+                if (ping_was_lost) {
+                    write_locked_reference(unanswered_ping_record_store())->add_flat_record(last_ping_start_unixtime, [&](auto &&r) {
+                        r.ping_start_unixtime() = last_ping_start_unixtime;
+                        r.ping_slot() = last_ping_slot;
+                        r.flat_iterator_timeshard->ping_if_ip_index.index_linked_field_add(std::make_pair(if_name, dest), r);
+                    });
                 }
             }
         }
-        if (!std::isnan(last_ping)) {
-            auto healthy = decide_health(now);
-            act_on_healthy_interfaces(std::move(healthy), now);
+
+    ping_sender sender;
+    for (auto const &[if_name, addrs] : known_ifs) {
+        // send pings
+        for (sockaddr const &src_sockaddr : addrs) {
+            for (auto &&dest : target_ping_addrs) {
+                try {
+                    for (auto i = env("ping_repeat_count", 3); i != 0; --i) {
+                        sender.send_ping(src_sockaddr, sockaddr_from_network_addr(dest), if_name);
+                    }
+                } catch (std::exception const &e) {
+                    std::cerr << "cannot ping on " << if_name << ": " << e.what() << std::endl;
+                }
+            }
+        }
+    }
+    if (!std::isnan(last_ping)) {
+        auto healthy = decide_health(now);
+        act_on_healthy_interfaces(std::move(healthy), now);
+    }
+}
+
+
+std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
+    std::unordered_set<std::string> healthy_interfaces;
+    uint64_t best_count = 0;
+    for (auto const &[k, v] : if_to_good_target) {
+        best_count = std::max(best_count, v.size());
+        if (v.size() == good_targets_to_if_count.size() && !good_targets_to_if_count.empty()) {
+            healthy_interfaces.insert(k);
         }
     }
 
-
-    std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
-        std::unordered_set<std::string> healthy_interfaces;
-        uint64_t best_count = 0;
-        for (auto const &[k, v] : if_to_good_target) {
-            best_count = std::max(best_count, v.size());
-            if (v.size() == good_targets_to_if_count.size() && !good_targets_to_if_count.empty()) {
-                healthy_interfaces.insert(k);
+    if (healthy_interfaces.empty() && best_count > 0) {
+        for (auto &&i : live_interfaces) {
+            if (if_to_good_target[i].size() == best_count) {
+                healthy_interfaces.insert(i);
             }
         }
+    }
 
-        if (healthy_interfaces.empty() && best_count > 0) {
-            for (auto &&i : live_interfaces) {
-                if (if_to_good_target[i].size() == best_count) {
-                    healthy_interfaces.insert(i);
-                }
+    for (auto &&interface : live_interfaces) {
+        bool now_is_good = healthy_interfaces.contains(interface);
+        flat_timeshard_iterator_interface_health_record last_record;
+
+        auto update_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
+            r.health_decision_unixtime() = now;
+
+            if (now_is_good) {
+                r.health_last_good_unixtime() = now;
+            } else {
+                r.health_last_bad_unixtime() = now;
             }
-        }
+        };
+        auto new_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
+            if (last_record) {
+                r.health_last_good_unixtime() = last_record.health_last_good_unixtime();
+                r.health_last_bad_unixtime() = last_record.health_last_bad_unixtime();
+                r.health_last_mark_unhealthy_unixtime() = last_record.health_last_mark_unhealthy_unixtime();
+                r.health_last_mark_healthy_unixtime() = last_record.health_last_mark_healthy_unixtime();
+            } else {
+                r.health_last_good_unixtime() = std::nan("");
+                r.health_last_bad_unixtime() = std::nan("");
+                r.health_last_mark_unhealthy_unixtime() = std::nan("");
+                r.health_last_mark_healthy_unixtime() = std::nan("");
+            }
 
-        for (auto &&interface : live_interfaces) {
-            bool now_is_good = healthy_interfaces.contains(interface);
-            flat_timeshard_iterator_interface_health_record last_record;
-
-            auto update_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
-                r.health_decision_unixtime() = now;
-
-                if (now_is_good) {
-                    r.health_last_good_unixtime() = now;
-                } else {
-                    r.health_last_bad_unixtime() = now;
-                }
-            };
-            auto new_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
-                if (last_record) {
-                    r.health_last_good_unixtime() = last_record.health_last_good_unixtime();
-                    r.health_last_bad_unixtime() = last_record.health_last_bad_unixtime();
-                    r.health_last_mark_unhealthy_unixtime() = last_record.health_last_mark_unhealthy_unixtime();
-                    r.health_last_mark_healthy_unixtime() = last_record.health_last_mark_healthy_unixtime();
-                } else {
-                    r.health_last_good_unixtime() = std::nan("");
-                    r.health_last_bad_unixtime() = std::nan("");
-                    r.health_last_mark_unhealthy_unixtime() = std::nan("");
-                    r.health_last_mark_healthy_unixtime() = std::nan("");
-                }
-
-                update_fields(r);
-                r.health_interface() = interface;
-                r.flat_iterator_timeshard->health_interface_index.index_linked_field_add(interface, r);
-            };
+            update_fields(r);
+            r.health_interface() = interface;
+            r.flat_iterator_timeshard->health_interface_index.index_linked_field_add(interface, r);
+        };
 
 
-            last_record = interface_health_record_store().health_interface_index(interface).add_if_missing(new_fields, now);
+        {
+            auto write = write_locked_reference(interface_health_record_store());
+            last_record = write->health_interface_index(interface).add_if_missing(new_fields, now);
 
             bool last_was_good = last_record && (last_record.health_last_good_unixtime() == last_record.health_decision_unixtime());
 
             if (!last_record || last_was_good != now_is_good) {
-                if_records[interface] = interface_health_record_store().add_flat_record(now, new_fields);
+                if_records[interface] = write->add_flat_record(now, new_fields);
             } else {
                 update_fields(last_record);
                 if_records[interface] = last_record;
             }
         }
-
-        return healthy_interfaces;
     }
-    void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now) {
-        bool interfaces_have_changed = false;
-        auto write_unhealthy = [&](std::string const &if_name, bool unhealthy) {
-            auto health_file = str(
-                    env("health_file_prefix", "rebootping-"),
-                    if_name,
-                    env("health_file_suffix", ".status"));
-            if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
-                rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy", if_name);
-                interfaces_have_changed = true;
-                return true;
-            }
-            return false;
-        };
-        for (auto &&i : live_interfaces) {
-            auto healthy = healthy_interfaces.find(i) != healthy_interfaces.end();
-            if (!healthy) {
-                write_unhealthy(i, true);
-                if_records[i].health_last_mark_unhealthy_unixtime() = now;
-            }
-        }
-        std::vector<std::string> healthy_sorted{healthy_interfaces.begin(), healthy_interfaces.end()};
-        std::sort(healthy_sorted.begin(), healthy_sorted.end(), [&](auto &&a, auto &&b) {
-            return if_records[a].health_last_mark_unhealthy_unixtime() < if_records[b].health_last_mark_unhealthy_unixtime();
-        });
-        bool first_healthy = true;
-        for (auto &&i : healthy_sorted) {
-            if (!first_healthy &&
-                if_records[i].health_last_mark_unhealthy_unixtime() <
-                        now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
-                break;
-            }
-            first_healthy = false;
-            if_records[i].health_last_mark_healthy_unixtime() = now;
 
-            write_unhealthy(i, false);
+    return healthy_interfaces;
+}
+void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now) {
+    bool interfaces_have_changed = false;
+    auto write_unhealthy = [&](std::string const &if_name, bool unhealthy) {
+        auto health_file = str(
+                env("health_file_prefix", "rebootping-"),
+                if_name,
+                env("health_file_suffix", ".status"));
+        if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
+            rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy", if_name);
+            interfaces_have_changed = true;
+            return true;
         }
-        if (interfaces_have_changed) {
-            auto health_watcher = env("health_change_watcher_command", "shorewall reload");
-            CALL_ERRNO_MINUS_1(std::system, health_watcher.c_str());
+        return false;
+    };
+    for (auto &&i : live_interfaces) {
+        auto healthy = healthy_interfaces.find(i) != healthy_interfaces.end();
+        if (!healthy) {
+            write_unhealthy(i, true);
+            if_records[i].health_last_mark_unhealthy_unixtime() = now;
         }
     }
+    std::vector<std::string> healthy_sorted{healthy_interfaces.begin(), healthy_interfaces.end()};
+    std::sort(healthy_sorted.begin(), healthy_sorted.end(), [&](auto &&a, auto &&b) {
+        return if_records[a].health_last_mark_unhealthy_unixtime() < if_records[b].health_last_mark_unhealthy_unixtime();
+    });
+    bool first_healthy = true;
+    for (auto &&i : healthy_sorted) {
+        if (!first_healthy &&
+            if_records[i].health_last_mark_unhealthy_unixtime() <
+                    now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
+            break;
+        }
+        first_healthy = false;
+        if_records[i].health_last_mark_healthy_unixtime() = now;
+
+        write_unhealthy(i, false);
+    }
+    if (interfaces_have_changed) {
+        auto health_watcher = env("health_change_watcher_command", "shorewall reload");
+        CALL_ERRNO_MINUS_1(std::system, health_watcher.c_str());
+    }
+}
 }// namespace
 
 void ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping) {
@@ -280,7 +300,7 @@ void ping_external_addresses(std::unordered_map<std::string, std::vector<sockadd
     }
 }
 
-interface_health_record &interface_health_record_store() {
-    static interface_health_record store(rebootping_records_dir());
+locked_reference<interface_health_record> &interface_health_record_store() {
+    static locked_holder<interface_health_record> store(rebootping_records_dir());
     return store;
 }

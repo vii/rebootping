@@ -2,6 +2,7 @@
 
 #include "flat_mmap.hpp"
 #include "now_unixtime.hpp"
+#include "str.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -61,7 +62,7 @@ struct flat_dirtree {
         return after;
     }
 
-    typename decltype(flat_timeshards)::iterator timeshard_iter_after(double unixtime) {
+    typename decltype(flat_timeshards)::const_iterator timeshard_iter_after(double unixtime) const {
         return std::upper_bound(flat_timeshards.begin(), flat_timeshards.end(),
                                 unixtime,
                                 [](double unixtime, std::unique_ptr<timeshard_type> const &s) {
@@ -69,7 +70,7 @@ struct flat_dirtree {
                                 });
     }
 
-    typename decltype(flat_timeshards)::reverse_iterator timeshard_reverse_iter_including(double unixtime) {
+    typename decltype(flat_timeshards)::const_reverse_iterator timeshard_reverse_iter_including(double unixtime) const {
         auto after = std::lower_bound(flat_timeshards.rbegin(), flat_timeshards.rend(),
                                       unixtime,
                                       [](std::unique_ptr<timeshard_type> const &s, double unixtime) {
@@ -82,7 +83,7 @@ struct flat_dirtree {
         return after;
     }
 
-    typename decltype(flat_timeshards)::reverse_iterator timeshard_reverse_iter_before(double unixtime) {
+    typename decltype(flat_timeshards)::const_reverse_iterator timeshard_reverse_iter_before(double unixtime) const {
         return std::upper_bound(flat_timeshards.rbegin(), flat_timeshards.rend(),
                                 unixtime,
                                 [](double unixtime, std::unique_ptr<timeshard_type> const &s) {
@@ -101,22 +102,32 @@ struct flat_dirtree {
                 .first;
     }
 
-    timeshard_type *timeshard_name_to_timeshard(std::string_view timeshard_name, bool create_missing = true) {
+    timeshard_type& ensure_timeshard_name_to_timeshard(std::string_view timeshard_name) {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
-            if (flat_settings.mmap_readonly || !create_missing) {
-                return nullptr;
+            if (flat_settings.mmap_readonly) {
+                throw std::runtime_error(str("timeshard ", timeshard_name, " does not exist in readonly ", flat_dir));
             }
             std::filesystem::create_directories(flat_dir + "/" + std::string(timeshard_name) + "/" + flat_dir_suffix);
             i = insert_new_timeshard(timeshard_name);
         }
+        return *i->second;
+    }
+
+    timeshard_type& ensure_unixtime_to_timeshard(double unixtime) {
+        return ensure_timeshard_name_to_timeshard(yyyymmdd(unixtime));
+    }
+    timeshard_type const*timeshard_name_to_timeshard(std::string_view timeshard_name) const {
+        auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
+        if (i == flat_name_to_timeshard.end()) {
+            return nullptr;
+        }
         return &*i->second;
     }
 
-    timeshard_type *unixtime_to_timeshard(double unixtime, bool create_missing = true) {
-        return timeshard_name_to_timeshard(yyyymmdd(unixtime), create_missing);
+    timeshard_type const*unixtime_to_timeshard(double unixtime) const {
+        return timeshard_name_to_timeshard(yyyymmdd(unixtime));
     }
-
     template<typename add_function>
     timeshard_iterator_type add_flat_record(std::string_view timeshard_name, add_function &&f) {
         auto shard = timeshard_name_to_timeshard(timeshard_name);
@@ -148,7 +159,7 @@ struct flat_dirtree {
 
     template<typename add_function>
     timeshard_iterator_type add_flat_record(double unixtime, add_function &&f) {
-        return add_flat_record(*unixtime_to_timeshard(unixtime),
+        return add_flat_record(ensure_unixtime_to_timeshard(unixtime),
                                std::forward<add_function>(f));
     }
 
@@ -159,12 +170,12 @@ struct flat_dirtree {
 
 
     struct flat_dirtree_iterator : std::iterator<std::input_iterator_tag, timeshard_iterator_type> {
-        typename decltype(flat_timeshards)::iterator outer_iterator;
+        typename decltype(flat_timeshards)::const_iterator outer_iterator;
         uint64_t flat_iterator_index = 0;
 
         flat_dirtree_iterator() = default;
 
-        explicit flat_dirtree_iterator(typename decltype(flat_timeshards)::iterator const &it, uint64_t index = 0) : outer_iterator{it}, flat_iterator_index{index} {}
+        explicit flat_dirtree_iterator(typename decltype(flat_timeshards)::const_iterator const &it, uint64_t index = 0) : outer_iterator{it}, flat_iterator_index{index} {}
 
         bool operator==(flat_dirtree_iterator const &other) const {
             return other.outer_iterator == outer_iterator && other.flat_iterator_index == flat_iterator_index;
@@ -310,12 +321,12 @@ struct flat_dirtree {
 
         template<typename add_function>
         timeshard_iterator_type add_if_missing(add_function &&f, double unixtime = now_unixtime()) {
-            timeshard_type *last_timeshard = iter_dirtree.unixtime_to_timeshard(unixtime);
-            auto &timeshard_field = iter_search_context->search_obj_to_field_mapper(*last_timeshard);
+            timeshard_type& last_timeshard = iter_dirtree.ensure_unixtime_to_timeshard(unixtime);
+            auto &timeshard_field = iter_search_context->search_obj_to_field_mapper(last_timeshard);
             if (auto lookup = timeshard_field.flat_timeshard_index_lookup_key(iter_search_context->search_key)) {
-                return timeshard_iterator_type(last_timeshard, *lookup - 1);
+                return timeshard_iterator_type(&last_timeshard, *lookup - 1);
             }
-            return iter_dirtree.add_flat_record(*last_timeshard, [&](timeshard_iterator_type &iter) {
+            return iter_dirtree.add_flat_record(last_timeshard, [&](timeshard_iterator_type &iter) {
                 f(iter);
                 timeshard_field.flat_timeshard_index_set_key(iter_search_context->search_key, iter);
             });
@@ -343,7 +354,7 @@ struct flat_dirtree {
                 end_iter);
     }
     template<typename obj_to_field_mapper, typename... arg_types>
-    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types &&... args) {
+    void dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper, arg_types &&...args) const {
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
         for (auto i = begin; i != end; ++i) {
@@ -351,7 +362,7 @@ struct flat_dirtree {
         }
     }
     template<typename obj_to_field_mapper>
-    decltype(auto) dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) {
+    decltype(auto) dirtree_field_walk(double start_unixtime, double end_unixtime, obj_to_field_mapper &&mapper) const {
         auto begin = timeshard_reverse_iter_including(end_unixtime);
         auto end = timeshard_reverse_iter_before(start_unixtime);
         std::unordered_map<typename std::decay_t<decltype(mapper(**begin))>::field_hydrated_key_type, timeshard_iterator_type> ret;

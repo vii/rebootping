@@ -37,8 +37,6 @@ void report_html_dump(std::ostream &out) {
 )";
 
     out << "<h1>Interface statuses</h1>\n";
-    auto interfaces = interface_health_record_store().health_interface_index();
-
     out << R"(
 <table>
     <thead>
@@ -52,21 +50,23 @@ void report_html_dump(std::ostream &out) {
     </thead>
     <tbody>
 )";
-    for (auto &&[interface, record] : interfaces) {
-        out << R"(
+    {
+        for (auto &&[interface, record] : read_locked_reference(interface_health_record_store())->health_interface_index()) {
+            out << R"(
         <tr>
             <th>)"
-            << escape_html(interface) << R"(</th>
+                << escape_html(interface) << R"(</th>
             <td class=interface_health_record_status>)"
-            << escape_html(interface_health_record_status_string(record)) << R"(</td>
+                << escape_html(interface_health_record_status_string(record)) << R"(</td>
             <td class=unixtime>)"
-            << record.health_last_good_unixtime() << R"(</td>
+                << record.health_last_good_unixtime() << R"(</td>
             <td class=unixtime>)"
-            << record.health_last_bad_unixtime() << R"(</td>
+                << record.health_last_bad_unixtime() << R"(</td>
             <td class=unixtime>)"
-            << record.health_decision_unixtime() << R"(</td>
+                << record.health_decision_unixtime() << R"(</td>
         </tr>
 )";
+        }
     }
     out << R"(
     </tbody>
@@ -75,17 +75,20 @@ void report_html_dump(std::ostream &out) {
     out << "<h1>Ping history</h1>\n";
     out << "<div class=rebootping_js_eval>rebootping_record_graph({flat_schema: ";
     flat_record_schema_as_json<ping_record>(out);
-    out << ", flat_dir: " << escape_json(ping_record_store().flat_dir) << ",\n"
-        << " flat_timeshard_index_next_offset: " << offsetof(flat_timeshard_header, flat_timeshard_index_next) << ",\n"
-        << " flat_dir_suffix: " << escape_json(ping_record_store().flat_dir_suffix) << ",\n flat_timeshards: [";
+    {
+        auto store = read_locked_reference(ping_record_store());
+        out << ", flat_dir: " << escape_json(store->flat_dir) << ",\n"
+            << " flat_timeshard_index_next_offset: " << offsetof(flat_timeshard_header, flat_timeshard_index_next) << ",\n"
+            << " flat_dir_suffix: " << escape_json(store->flat_dir_suffix) << ",\n flat_timeshards: [";
 
-    bool first_timeshard = true;
-    for (auto&&shard:ping_record_store().flat_timeshards) {
-        if (!first_timeshard) {
-            out << "\n, ";
+        bool first_timeshard = true;
+        for (auto &&shard : store->flat_timeshards) {
+            if (!first_timeshard) {
+                out << "\n, ";
+            }
+            first_timeshard = false;
+            out << escape_json(shard->flat_timeshard_name);
         }
-        first_timeshard = false;
-        out << escape_json(shard->flat_timeshard_name);
     }
     out << R"(], x: "ping_start_unixtime", y: "ping_recv_seconds", hue: ["ping_interface", "ping_dest_addr"]});
 </div>
@@ -94,7 +97,7 @@ void report_html_dump(std::ostream &out) {
     std::unordered_map<macaddr, std::unordered_set<network_addr>> mac_to_addrs;
     std::unordered_map<macaddr, std::unordered_set<std::string>> mac_to_interfaces;
 
-    for (auto &&[interface_mac, record] : arp_response_record_store().arp_macaddr_index()) {
+    for (auto &&[interface_mac, record] : read_locked_reference(arp_response_record_store())->arp_macaddr_index()) {
         mac_to_interfaces[interface_mac.lookup_addr].insert(std::string(interface_mac.lookup_if.operator std::string_view()));
         for (auto &&[addr, count] : record.arp_addresses().known_keys_and_counts()) {
             mac_to_addrs[interface_mac.lookup_addr].insert(addr);
@@ -102,7 +105,7 @@ void report_html_dump(std::ostream &out) {
     }
 
     std::unordered_map<macaddr, double> mac_to_last_stp;
-    for (auto &&stp : stp_record_store().stp_source_macaddr_index()) {
+    for (auto &&stp : read_locked_reference(stp_record_store())->stp_source_macaddr_index()) {
         mac_to_last_stp[stp.first] = stp.second.stp_unixtime();
     }
 
@@ -134,7 +137,8 @@ void report_html_dump(std::ostream &out) {
             out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>" << std::endl;
         }
         std::unordered_map<uint16_t, uint64_t > tcp_port_counts;
-        for (auto&&accepts:tcp_accept_record_store().tcp_macaddr_index(mac)) {
+        // TODO allow const access to this kind of lookup so we can use a read lock
+        for (auto&&accepts:write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac)) {
             for (auto&&[p,c]:accepts.tcp_ports().known_keys_and_counts()) {
                 tcp_port_counts[p] += c;
             }
@@ -145,15 +149,16 @@ void report_html_dump(std::ostream &out) {
         // TODO udp ports
         // TODO sort these counts
         // TODO clean up duplicate code collecting counts and then printing them
+        // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
         std::unordered_map<network_addr , uint64_t > connect_counts;
-        for (auto&&connects:ip_contact_record_store().ip_contact_macaddr_index(mac)) {
+        for (auto&&connects:write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
             for (auto&&[a,c]:connects.ip_contact_addrs().known_keys_and_counts()) {
                 connect_counts[a] += c;
             }
         }
         for (auto&&[a,c]:connect_counts) {
             std::string address;
-            for (auto&&dns:dns_response_record_store().dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr=mac, .lookup_addr=a})) {
+            for (auto&&dns:write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr=mac, .lookup_addr=a})) {
                 address = dns.dns_response_hostname().operator std::string_view();
             }
             out << "<p class=contacted_ip>" << escape_html(address) << " " << in_addr{a} << " count " << c << "</p>\n";

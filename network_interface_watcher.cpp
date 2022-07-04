@@ -97,7 +97,7 @@ struct network_interface_watcher {
                             .lookup_addr = addr,
                     };
                     auto unixtime = timeval_to_unixtime(h->ts);
-                    dns_response_record_store().add_flat_record(unixtime, [&](flat_timeshard_iterator_dns_response_record &iter) {
+                    write_locked_reference(dns_response_record_store())->add_flat_record(unixtime, [&](flat_timeshard_iterator_dns_response_record &iter) {
                         iter.flat_iterator_timeshard->dns_macaddr_lookup_index.index_linked_field_add(lookup, iter);
                         iter.dns_response_hostname() = name;
                         iter.dns_response_unixtime() = unixtime;
@@ -127,7 +127,7 @@ struct network_interface_watcher {
         auto port = ntohs(p->th_sport);
         switch (p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
             case ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK):
-                tcp_accept_record_store().tcp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).tcp_ports().notice_key(port);
+                write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).tcp_ports().notice_key(port);
                 break;
         }
     }
@@ -144,7 +144,7 @@ struct network_interface_watcher {
 
         auto port = ntohs(p->uh_dport);
         if (port < env("udp_recv_tracking_min_port", 10000)) {
-            udp_recv_record_store().udp_macaddr_index(p->ether_dhost).add_if_missing(timeval_to_unixtime(h->ts)).udp_ports().notice_key(port);
+            write_locked_reference(udp_recv_record_store())->udp_macaddr_index(p->ether_dhost).add_if_missing(timeval_to_unixtime(h->ts)).udp_ports().notice_key(port);
         }
 
         if (auto dns_p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen)) {
@@ -172,7 +172,7 @@ struct network_interface_watcher {
                 break;
         }
 
-        ip_contact_record_store().ip_contact_macaddr_index(p->ether_shost)
+        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost)
                 .add_if_missing(timeval_to_unixtime(h->ts))
                 .ip_contact_addrs()
                 .notice_key(p->ip_dst.s_addr);
@@ -198,7 +198,7 @@ struct network_interface_watcher {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        arp_response_record_store().arp_macaddr_index(std::make_pair(
+        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(
                                                               interface_name,
                                                               p->ether_shost))
                 .add_if_missing(timeval_to_unixtime(h->ts))
@@ -213,8 +213,8 @@ struct network_interface_watcher {
         }
 
         auto unixtime = timeval_to_unixtime(h->ts);
-        stp_record_store()
-                .stp_source_macaddr_index(p->ether_shost)
+        write_locked_reference(stp_record_store())
+                ->stp_source_macaddr_index(p->ether_shost)
                 .add_if_missing(unixtime).stp_unixtime() = unixtime;
     }
 };

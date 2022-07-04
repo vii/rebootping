@@ -6,6 +6,7 @@
 #include "now_unixtime.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
+#include "locked_reference.hpp"
 #include <pcap/pcap.h>
 
 #include <atomic>
@@ -46,17 +47,17 @@ define_flat_record(ping_record,
                    (flat_bytes_interned_ptr, ping_interface),
                    (uint64_t, ping_cookie), );
 
-ping_record &ping_record_store();
+locked_reference<ping_record> &ping_record_store();
 
 define_flat_record(last_ping_record,
                    (double, ping_start_unixtime),
                    (uint64_t, ping_slot),
                    (flat_index_field<if_ip_lookup>, ping_if_ip_index), );
-last_ping_record &last_ping_record_store();
+locked_reference<last_ping_record> &last_ping_record_store();
 
 
 define_flat_record(unanswered_ping_record,
                    (double, ping_start_unixtime),
                    (uint64_t, ping_slot),
                    (flat_index_linked_field<if_ip_lookup>, ping_if_ip_index), );
-unanswered_ping_record &unanswered_ping_record_store();
+locked_reference<unanswered_ping_record> &unanswered_ping_record_store();

@@ -130,15 +130,24 @@ struct flat_timeshard {
     inline flat_timeshard_header &timeshard_header_ref() {
         return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
     }
+    inline flat_timeshard_header const&timeshard_header_ref() const{
+        return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
+    }
 
     void timeshard_commit_index(uint64_t index) {
         if (timeshard_header_ref().flat_timeshard_index_next != index) {
-            throw std::runtime_error("timeshard_commit_index index out of order");
+            throw std::runtime_error(
+                    str("timeshard_commit_index index out of order: flat_timeshard_name ",
+                        flat_timeshard_name,
+                        " index ",
+                        index,
+                        " flat_timeshard_index_next ",
+                        timeshard_header_ref().flat_timeshard_index_next));
         }
         timeshard_header_ref().flat_timeshard_index_next = index + 1;
     }
 
-    uint64_t flat_timeshard_index_next() {
+    uint64_t flat_timeshard_index_next() const {
         return timeshard_header_ref().flat_timeshard_index_next;
     }
 
@@ -241,7 +250,7 @@ template<typename field_type>
 struct flat_timeshard_field : flat_timeshard_base_field<field_type> {
     using flat_timeshard_base_field<field_type>::flat_timeshard_base_field;
     using flat_timeshard_base_field<field_type>::field_mmap;
-    inline field_type &operator[](uint64_t index) {
+    inline field_type &operator[](uint64_t index) const {
         return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type));
     }
 };

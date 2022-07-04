@@ -6,6 +6,7 @@
 #include "flat_mfu_mru.hpp"
 #include "flat_record.hpp"
 #include "wire_layout.hpp"
+#include "locked_reference.hpp"
 
 using network_addr = in_addr_t;
 
@@ -138,7 +139,7 @@ define_flat_record(dns_response_record,
                    (network_addr, dns_response_addr),
                    (flat_index_linked_field<macaddr_ip_lookup>, dns_macaddr_lookup_index));
 
-dns_response_record &dns_response_record_store();
+locked_reference<dns_response_record> &dns_response_record_store();
 
 using network_port_collector = flat_mfu_mru<uint16_t, 10, 3>;
 
@@ -146,13 +147,13 @@ define_flat_record(tcp_accept_record,
                    (network_port_collector, tcp_ports),
                    (flat_index_field<macaddr>, tcp_macaddr_index));
 
-tcp_accept_record &tcp_accept_record_store();
+locked_reference<tcp_accept_record> &tcp_accept_record_store();
 
 define_flat_record(udp_recv_record,
                    (network_port_collector, udp_ports),
                    (flat_index_field<macaddr>, udp_macaddr_index));
 
-udp_recv_record &udp_recv_record_store();
+locked_reference<udp_recv_record> &udp_recv_record_store();
 
 using network_addr_collector = flat_mfu_mru<network_addr, 10, 3>;
 
@@ -160,7 +161,7 @@ define_flat_record(arp_response_record,
                    (network_addr_collector, arp_addresses),
                    (flat_index_field<if_mac_lookup>, arp_macaddr_index));
 
-arp_response_record &arp_response_record_store();
+locked_reference<arp_response_record> &arp_response_record_store();
 
 
 using ip_collector = flat_mfu_mru<network_addr, 16, 4>;
@@ -168,9 +169,9 @@ using ip_collector = flat_mfu_mru<network_addr, 16, 4>;
 define_flat_record(ip_contact_record,
                    (ip_collector, ip_contact_addrs),
                    (flat_index_field<macaddr>, ip_contact_macaddr_index));
-ip_contact_record &ip_contact_record_store();
+locked_reference<ip_contact_record> &ip_contact_record_store();
 
 define_flat_record(stp_record,
                    (double, stp_unixtime),
                    (flat_index_field<macaddr>, stp_source_macaddr_index));
-stp_record &stp_record_store();
+locked_reference<stp_record> &stp_record_store();
