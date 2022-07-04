@@ -172,8 +172,7 @@ struct network_interface_watcher {
                 break;
         }
 
-        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost)
-                .add_if_missing(timeval_to_unixtime(h->ts))
+        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts))
                 .ip_contact_addrs()
                 .notice_key(p->ip_dst.s_addr);
     }
@@ -198,10 +197,7 @@ struct network_interface_watcher {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(
-                                                              interface_name,
-                                                              p->ether_shost))
-                .add_if_missing(timeval_to_unixtime(h->ts))
+        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(interface_name, p->ether_shost)).add_if_missing(timeval_to_unixtime(h->ts))
                 .arp_addresses()
                 .notice_key(p->arp_spa.s_addr);
     }
@@ -215,7 +211,8 @@ struct network_interface_watcher {
         auto unixtime = timeval_to_unixtime(h->ts);
         write_locked_reference(stp_record_store())
                 ->stp_source_macaddr_index(p->ether_shost)
-                .add_if_missing(unixtime).stp_unixtime() = unixtime;
+                .add_if_missing(unixtime)
+                .stp_unixtime() = unixtime;
     }
 };
 

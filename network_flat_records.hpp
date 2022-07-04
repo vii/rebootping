@@ -5,8 +5,8 @@
 #include "flat_index_field.hpp"
 #include "flat_mfu_mru.hpp"
 #include "flat_record.hpp"
-#include "wire_layout.hpp"
 #include "locked_reference.hpp"
+#include "wire_layout.hpp"
 
 using network_addr = in_addr_t;
 

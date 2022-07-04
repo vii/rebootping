@@ -130,7 +130,7 @@ struct flat_timeshard {
     inline flat_timeshard_header &timeshard_header_ref() {
         return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
     }
-    inline flat_timeshard_header const&timeshard_header_ref() const{
+    inline flat_timeshard_header const &timeshard_header_ref() const {
         return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
     }
 

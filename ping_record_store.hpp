@@ -2,11 +2,11 @@
 
 #include "file_contents_cache.hpp"
 #include "limited_pcap_dumper.hpp"
+#include "locked_reference.hpp"
 #include "network_flat_records.hpp"
 #include "now_unixtime.hpp"
 #include "str.hpp"
 #include "wire_layout.hpp"
-#include "locked_reference.hpp"
 #include <pcap/pcap.h>
 
 #include <atomic>

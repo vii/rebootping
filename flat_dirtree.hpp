@@ -102,7 +102,7 @@ struct flat_dirtree {
                 .first;
     }
 
-    timeshard_type& ensure_timeshard_name_to_timeshard(std::string_view timeshard_name) {
+    timeshard_type &ensure_timeshard_name_to_timeshard(std::string_view timeshard_name) {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
             if (flat_settings.mmap_readonly) {
@@ -114,10 +114,10 @@ struct flat_dirtree {
         return *i->second;
     }
 
-    timeshard_type& ensure_unixtime_to_timeshard(double unixtime) {
+    timeshard_type &ensure_unixtime_to_timeshard(double unixtime) {
         return ensure_timeshard_name_to_timeshard(yyyymmdd(unixtime));
     }
-    timeshard_type const*timeshard_name_to_timeshard(std::string_view timeshard_name) const {
+    timeshard_type const *timeshard_name_to_timeshard(std::string_view timeshard_name) const {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
             return nullptr;
@@ -125,7 +125,7 @@ struct flat_dirtree {
         return &*i->second;
     }
 
-    timeshard_type const*unixtime_to_timeshard(double unixtime) const {
+    timeshard_type const *unixtime_to_timeshard(double unixtime) const {
         return timeshard_name_to_timeshard(yyyymmdd(unixtime));
     }
     template<typename add_function>
@@ -321,7 +321,7 @@ struct flat_dirtree {
 
         template<typename add_function>
         timeshard_iterator_type add_if_missing(add_function &&f, double unixtime = now_unixtime()) {
-            timeshard_type& last_timeshard = iter_dirtree.ensure_unixtime_to_timeshard(unixtime);
+            timeshard_type &last_timeshard = iter_dirtree.ensure_unixtime_to_timeshard(unixtime);
             auto &timeshard_field = iter_search_context->search_obj_to_field_mapper(last_timeshard);
             if (auto lookup = timeshard_field.flat_timeshard_index_lookup_key(iter_search_context->search_key)) {
                 return timeshard_iterator_type(&last_timeshard, *lookup - 1);

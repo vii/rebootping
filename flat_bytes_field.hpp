@@ -77,10 +77,10 @@ template<>
 struct flat_timeshard_field<std::string_view> : flat_timeshard_field_bytes_base {
     using flat_timeshard_field_bytes_base::flat_timeshard_field_bytes_base;
 
-    inline auto operator[](uint64_t index)const {
+    inline auto operator[](uint64_t index) const {
         return flat_bytes_ptr<flat_timeshard_field<std::string_view>, flat_bytes_offset_tag &>{
                 // TODO create distinction between a writeable flat_bytes_ptr and a const one
-                const_cast<flat_timeshard_field<std::string_view>&>(*this),
+                const_cast<flat_timeshard_field<std::string_view> &>(*this),
                 field_mmap.mmap_cast<flat_bytes_offset_tag>(index * sizeof(flat_bytes_offset_tag))};
     }
 };

@@ -2,9 +2,9 @@
 
 #include "env.hpp"
 #include "flat_index_field.hpp"
+#include "locked_reference.hpp"
 #include "network_flat_records.hpp"
 #include "wire_layout.hpp"
-#include "locked_reference.hpp"
 
 #include <unordered_map>
 #include <unordered_set>

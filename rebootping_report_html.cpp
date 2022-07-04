@@ -133,17 +133,17 @@ void report_html_dump(std::ostream &out) {
         if (auto i = mac_to_last_stp.find(mac); i != mac_to_last_stp.end()) {
             out << "<h3 class=last_stp_router_update><span class=unixtime>" << i->second << "</span></h3>" << std::endl;
         }
-        for (auto&&if_name:mac_to_interfaces[mac]) {
+        for (auto &&if_name : mac_to_interfaces[mac]) {
             out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>" << std::endl;
         }
-        std::unordered_map<uint16_t, uint64_t > tcp_port_counts;
+        std::unordered_map<uint16_t, uint64_t> tcp_port_counts;
         // TODO allow const access to this kind of lookup so we can use a read lock
-        for (auto&&accepts:write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac)) {
-            for (auto&&[p,c]:accepts.tcp_ports().known_keys_and_counts()) {
+        for (auto &&accepts : write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac)) {
+            for (auto &&[p, c] : accepts.tcp_ports().known_keys_and_counts()) {
                 tcp_port_counts[p] += c;
             }
         }
-        for (auto&&[p,c]:tcp_port_counts) {
+        for (auto &&[p, c] : tcp_port_counts) {
             out << "<p class=tcp_port><a href=\"http://" << escape_html(best_addr) << ":" << p << "\">port " << p << "</a> count " << c << "</p>\n";
         }
         // TODO udp ports
@@ -151,14 +151,14 @@ void report_html_dump(std::ostream &out) {
         // TODO clean up duplicate code collecting counts and then printing them
         // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
         std::unordered_map<network_addr , uint64_t > connect_counts;
-        for (auto&&connects:write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
-            for (auto&&[a,c]:connects.ip_contact_addrs().known_keys_and_counts()) {
+        for (auto &&connects : write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
+            for (auto &&[a, c] : connects.ip_contact_addrs().known_keys_and_counts()) {
                 connect_counts[a] += c;
             }
         }
-        for (auto&&[a,c]:connect_counts) {
+        for (auto &&[a, c] : connect_counts) {
             std::string address;
-            for (auto&&dns:write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr=mac, .lookup_addr=a})) {
+            for (auto &&dns : write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr = mac, .lookup_addr = a})) {
                 address = dns.dns_response_hostname().operator std::string_view();
             }
             out << "<p class=contacted_ip>" << escape_html(address) << " " << in_addr{a} << " count " << c << "</p>\n";

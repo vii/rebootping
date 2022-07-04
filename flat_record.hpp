@@ -56,7 +56,7 @@ inline std::string flat_record_schema_as_json() {
     , name(*this, #name, dir, settings)
 #define flat_timeshard_field_declaration(kind, name) \
     flat_timeshard_field<kind> name;
-#define flat_timeshard_iterator_member(kind, name)                                              \
+#define flat_timeshard_iterator_member(kind, name)                                                                                                                \
     inline decltype(auto) name() { return const_cast<std::remove_const_t<typeof(flat_iterator_timeshard)>>(flat_iterator_timeshard)->name[flat_iterator_index]; } \
     inline decltype(auto) name() const { return flat_iterator_timeshard->name[flat_iterator_index]; }
 #define flat_timeshard_ensure_field_mmapped_statement(kind, name) \
@@ -83,14 +83,14 @@ inline std::string flat_record_schema_as_json() {
     template<typename... arg_types>                                                                           \
     decltype(auto)                                                                                            \
     name(double start_unixtime = std::numeric_limits<double>::min(),                                          \
-         double end_unixtime = std::numeric_limits<double>::max(), arg_types && ... args) const {                   \
+         double end_unixtime = std::numeric_limits<double>::max(), arg_types && ...args) const {              \
         return dirtree_field_walk(                                                                            \
                 start_unixtime, end_unixtime, [](auto &&v) -> decltype(auto) { return v.name(); }, args...);  \
     }
 
 #define define_flat_record(record_name, ...)                                                                                                                                                   \
     struct flat_timeshard_iterator_##record_name;                                                                                                                                              \
-    struct flat_timeshard_const_iterator_##record_name;                                                                                                                                              \
+    struct flat_timeshard_const_iterator_##record_name;                                                                                                                                        \
     struct flat_timeshard_##record_name;                                                                                                                                                       \
     struct flat_record_schema_##record_name {                                                                                                                                                  \
         using flat_schema_timeshard_iterator = flat_timeshard_iterator_##record_name;                                                                                                          \
@@ -98,7 +98,7 @@ inline std::string flat_record_schema_as_json() {
                                                                                                                                                                                                \
         evaluate_for_each(flat_timeshard_field_schema_declaration, __VA_ARGS__)                                                                                                                \
                                                                                                                                                                                                \
-        struct flat_timeshard_schema_type : flat_timeshard_schema<evaluate_for_each_comma(flat_timeshard_field_schema_name, __VA_ARGS__)> {                                            \
+                struct flat_timeshard_schema_type : flat_timeshard_schema<evaluate_for_each_comma(flat_timeshard_field_schema_name, __VA_ARGS__)> {                                            \
             char const *flat_schema_name() { return #record_name; }                                                                                                                            \
         };                                                                                                                                                                                     \
     };                                                                                                                                                                                         \
@@ -109,7 +109,7 @@ inline std::string flat_record_schema_as_json() {
                                                                                                                                                                                                \
         evaluate_for_each(flat_timeshard_field_declaration, __VA_ARGS__)                                                                                                                       \
                                                                                                                                                                                                \
-        void flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                                             \
+                void flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                                             \
             evaluate_for_each(flat_timeshard_ensure_field_mmapped_statement, __VA_ARGS__)                                                                                                      \
         }                                                                                                                                                                                      \
                                                                                                                                                                                                \
@@ -117,7 +117,7 @@ inline std::string flat_record_schema_as_json() {
             : flat_timeshard(timeshard_name, dir, settings)                                                                                                                                    \
                       evaluate_for_each(flat_timeshard_field_constructor, __VA_ARGS__) {}                                                                                                      \
         flat_timeshard_iterator_##record_name timeshard_iterator_at(uint64_t index);                                                                                                           \
-        flat_timeshard_const_iterator_##record_name timeshard_iterator_at(uint64_t index) const;                                                                                                           \
+        flat_timeshard_const_iterator_##record_name timeshard_iterator_at(uint64_t index) const;                                                                                               \
     };                                                                                                                                                                                         \
                                                                                                                                                                                                \
                                                                                                                                                                                                \
@@ -128,18 +128,18 @@ inline std::string flat_record_schema_as_json() {
                                                                                                                                                                                                \
         evaluate_for_each(flat_timeshard_iterator_member, __VA_ARGS__)                                                                                                                         \
     };                                                                                                                                                                                         \
-    struct flat_timeshard_const_iterator_##record_name : flat_timeshard_iterator<const flat_timeshard_##record_name> {                                                                                     \
+    struct flat_timeshard_const_iterator_##record_name : flat_timeshard_iterator<const flat_timeshard_##record_name> {                                                                         \
         using flat_timeshard_schema_type = flat_record_schema_##record_name::flat_timeshard_schema_type;                                                                                       \
                                                                                                                                                                                                \
-        using flat_timeshard_iterator<const flat_timeshard_##record_name>::flat_timeshard_iterator;                                                                                                  \
+        using flat_timeshard_iterator<const flat_timeshard_##record_name>::flat_timeshard_iterator;                                                                                            \
                                                                                                                                                                                                \
         evaluate_for_each(flat_timeshard_iterator_member, __VA_ARGS__)                                                                                                                         \
     };                                                                                                                                                                                         \
                                                                                                                                                                                                \
-    inline flat_timeshard_const_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) const {                                                                        \
-        return flat_timeshard_const_iterator_##record_name(this, index);                                                                                                                             \
+    inline flat_timeshard_const_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) const {                                                            \
+        return flat_timeshard_const_iterator_##record_name(this, index);                                                                                                                       \
     }                                                                                                                                                                                          \
-    inline flat_timeshard_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index)  {                                                                        \
+    inline flat_timeshard_iterator_##record_name flat_timeshard_##record_name ::timeshard_iterator_at(uint64_t index) {                                                                        \
         return flat_timeshard_iterator_##record_name(this, index);                                                                                                                             \
     }                                                                                                                                                                                          \
     struct record_name : flat_dirtree<flat_record_schema_##record_name> {                                                                                                                      \
