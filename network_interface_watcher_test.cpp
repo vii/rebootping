@@ -22,14 +22,15 @@ TEST(network_interface_watcher_suite, many_tcp_accepts) {
         n.mac_bytes[0] += i & 0xff;
 
         for (uint16_t j = 0; j < q % 17; ++j) {
-            tcp_accept_record_store().tcp_macaddr_index(n).add_if_missing().tcp_ports().notice_key(q);
+            write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(n).add_if_missing().tcp_ports().notice_key(q);
             proper_values[n][q]++;
         }
     }
     std::cout << "Many ports recorded " << proper_values << std::endl;
 
     for (auto &[mac, ports_counts] : proper_values) {
-        auto iter = *tcp_accept_record_store().tcp_macaddr_index(mac).begin();
+        auto ref = write_locked_reference(tcp_accept_record_store());
+        auto iter = *ref->tcp_macaddr_index(mac).begin();
         rebootping_test_check(iter.tcp_ports().known_keys_and_counts(), ==, ports_counts);
     }
 }
@@ -45,7 +46,8 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
 
     int first_record_count = 0;
     network_addr addr = 0;
-    for (auto record : dns_response_record_store().timeshard_query()) {
+    auto write_ref = write_locked_reference(dns_response_record_store());
+    for (auto record : write_ref->timeshard_query()) {
         std::cout << "dns_response_record_store record " << first_record_count << " ";
         flat_record_dump_as_json(std::cout, record);
         std::cout << std::endl;
@@ -61,7 +63,7 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
                     0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
             .lookup_addr = addr,
     };
-    auto timeshard = dns_response_record_store().unixtime_to_timeshard(record_unixtime, true);
+    auto timeshard = write_ref->unixtime_to_timeshard(record_unixtime);
     auto index = timeshard->dns_macaddr_lookup_index.flat_timeshard_index_lookup_key(lookup);
     rebootping_test_check(index, !=, nullptr);
     if (index) {
@@ -73,7 +75,7 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
 
     for (int reload = 1; 878 > reload; ++reload) {
         int record_count = 0;
-        for (auto i : dns_response_record_store().dns_macaddr_lookup_index(lookup)) {
+        for (auto i : write_ref->dns_macaddr_lookup_index(lookup)) {
             rebootping_test_check((unsigned long) i.dns_response_unixtime(), ==, record_unixtime);
             rebootping_test_check("dns.com.", ==, i.dns_response_hostname());
             rebootping_test_check("43.243.131.114", ==, str(in_addr{i.dns_response_addr()}));

@@ -117,7 +117,7 @@ struct flat_dirtree {
     timeshard_type &ensure_unixtime_to_timeshard(double unixtime) {
         return ensure_timeshard_name_to_timeshard(yyyymmdd(unixtime));
     }
-    timeshard_type const *timeshard_name_to_timeshard(std::string_view timeshard_name) const {
+    timeshard_type *timeshard_name_to_timeshard(std::string_view timeshard_name) const {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
             return nullptr;
@@ -130,7 +130,7 @@ struct flat_dirtree {
     }
     template<typename add_function>
     timeshard_iterator_type add_flat_record(std::string_view timeshard_name, add_function &&f) {
-        auto shard = timeshard_name_to_timeshard(timeshard_name);
+        auto *shard = timeshard_name_to_timeshard(timeshard_name);
 
         if (!shard) {
             if (flat_settings.mmap_readonly) {
