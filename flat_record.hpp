@@ -109,8 +109,10 @@ inline std::string flat_record_schema_as_json() {
                                                                                                                                                                                                \
         evaluate_for_each(flat_timeshard_field_declaration, __VA_ARGS__)                                                                                                                       \
                                                                                                                                                                                                \
-                void flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                                             \
+                                                                                                                                                                                               \
+        flat_timeshard_##record_name& flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                                             \
             evaluate_for_each(flat_timeshard_ensure_field_mmapped_statement, __VA_ARGS__)                                                                                                      \
+            return *this;\
         }                                                                                                                                                                                      \
                                                                                                                                                                                                \
         inline flat_timeshard_##record_name(std::string_view timeshard_name, std::string const &dir, flat_mmap_settings const &settings)                                                       \

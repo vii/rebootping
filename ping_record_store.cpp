@@ -1,6 +1,7 @@
 #include "ping_record_store.hpp"
 #include "network_flat_records.hpp"
 #include "rebootping_records_dir.hpp"
+#include "flat_metrics.hpp"
 
 #include <mutex>
 
@@ -41,7 +42,7 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
 }
 
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-    auto packet = rebootping_ether_packet::header_from_packet(bytes, h->caplen);
+    auto packet = rebootping_ping_ether_packet::header_from_packet(bytes, h->caplen);
     if (!packet) {
         return;
     }
@@ -53,33 +54,31 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
     }
 
     auto &ping_payload = *packet;
+    ++flat_metric().ping_record_store_process_packet_packets;
     auto lock = write_locked_reference(ping_record_store());
     auto *timeshard = lock->unixtime_to_timeshard(ping_payload.ping_start_unixtime);
     if (!timeshard) {
-        std::cout << "ping_record_store_process_packet cannot find timeshard for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago";
+        ++flat_metric().ping_record_store_process_packet_missing_timeshard;
         return;
     }
     if (timeshard->timeshard_header_ref().flat_timeshard_index_next <= ping_payload.ping_slot) {
-        std::cout << "record_store_process_packet overflow timeshard for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago; slot " << ping_payload.ping_slot;
-        return;
-    }
-    if (timeshard->flat_timeshard_index_next() <= ping_payload.ping_slot) {
-        std::cout << "record_store_process_packet; ping_slot too large " << std::endl;
-        dbg(timeshard->flat_timeshard_index_next(), ping_payload.ping_slot);
+        ++flat_metric().ping_record_store_process_packet_overflow_timeshard;
         return;
     }
     auto record = timeshard->timeshard_iterator_at(ping_payload.ping_slot);
     if (ping_payload.ping_cookie != record.ping_cookie()) {
-        std::cout << "record_store_process_packet bad cookie for " << (now_unixtime() - ping_payload.ping_start_unixtime) << " seconds ago";
+        ++flat_metric().ping_record_store_process_packet_bad_cookie;
         return;
     }
 
     switch (packet->icmp_type) {
         case (uint8_t) icmp_type::ECHO:
             record.ping_sent_seconds() = now_unixtime() - record.ping_start_unixtime();
+            ++flat_metric().ping_record_store_process_packet_icmp_echo;
             break;
         case (uint8_t) icmp_type::ECHOREPLY:
             record.ping_recv_seconds() = now_unixtime() - record.ping_start_unixtime();
+            ++flat_metric().ping_record_store_process_packet_icmp_echoreply;
             break;
         default:
             break;

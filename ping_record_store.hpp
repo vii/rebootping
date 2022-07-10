@@ -27,7 +27,7 @@ struct rebootping_icmp_payload {
     double ping_start_unixtime;
 } __attribute__((__packed__));
 
-struct rebootping_ether_packet : wire_header<
+struct rebootping_ping_ether_packet : wire_header<
                                          ether_header,
                                          ip_header,
                                          icmp_header,

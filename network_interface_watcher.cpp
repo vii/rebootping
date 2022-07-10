@@ -327,7 +327,7 @@ void network_interface_watcher_live::loop_started() {
     char errbuf[PCAP_ERRBUF_SIZE];
     interface_pcap = pcap_open_live(
             interface_name.c_str(),
-            10 * 1024,//sizeof(rebootping_ether_packet) /* snaplen */,
+            10 * 1024,//sizeof(rebootping_ping_ether_packet) /* snaplen */,
             1 /* promiscuous */,
             1 /* packet buffer timeout in ms; allows buffering up to 1ms of packets. See https://www.tcpdump.org/manpages/pcap.3pcap.html */,
             errbuf);
