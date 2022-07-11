@@ -25,6 +25,7 @@ struct network_interface_watcher {
         if (!p) {
             return;
         }
+        ++flat_metric().network_interface_dns_packets;
 
         auto dns_start = (const u_char *) &p->dns_id;
         auto dns_ptr = bytes + sizeof(*p);
@@ -52,7 +53,9 @@ struct network_interface_watcher {
             while (auto len = eat_one()) {
                 if (len > 63) {
                     if (saved_ptr) {
-                        std::cout << "note_dns_udp_packet skipping DNS name with double compression" << std::endl;
+                        ++flat_metric().network_interface_dns_packets_overflow_decompression;
+                        // TODO: fix skipping DNS name with double compression
+                        // but be careful not to get stuck in a cycle
                         break;
                     }
                     auto next_len = eat_one();
@@ -93,6 +96,7 @@ struct network_interface_watcher {
             switch (qtype) {
                 case (int) dns_qtype::DNS_QTYPE_A: {
                     network_addr addr = eat_addr();
+                    ++flat_metric().network_interface_dns_packets_qtype_a;
                     auto lookup = macaddr_ip_lookup{
                             .lookup_macaddr = p->ether_dhost,
                             .lookup_addr = addr,
