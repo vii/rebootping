@@ -30,12 +30,20 @@ struct flat_metric_counter {
 
 define_flat_metrics(flat_metrics_struct,
                     (flat_metric_counter, metric_restarts),
+
                     (flat_metric_counter, ping_record_store_process_packet_packets),
                     (flat_metric_counter, ping_record_store_process_packet_missing_timeshard),
                     (flat_metric_counter, ping_record_store_process_packet_overflow_timeshard),
                     (flat_metric_counter, ping_record_store_process_packet_bad_cookie),
                     (flat_metric_counter, ping_record_store_process_packet_icmp_echo),
-                    (flat_metric_counter, ping_record_store_process_packet_icmp_echoreply), );
+                    (flat_metric_counter, ping_record_store_process_packet_icmp_echoreply),
+
+                    (flat_metric_counter, network_interface_ether_arp_packets),
+                    (flat_metric_counter, network_interface_ether_ipv4_packets),
+                    (flat_metric_counter, network_interface_ether_llc_packets),
+                    (flat_metric_counter, network_interface_tcp_packets),
+                    (flat_metric_counter, network_interface_udp_packets),
+                    );
 
 define_flat_record(flat_metrics_record,
                    (flat_metrics_struct, flat_metrics_value), );

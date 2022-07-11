@@ -2,6 +2,7 @@
 #include "make_unique_ptr_closer.hpp"
 #include "network_flat_records.hpp"
 #include "rebootping_event.hpp"
+#include "flat_metrics.hpp"
 
 #include <mutex>
 
@@ -123,6 +124,7 @@ struct network_interface_watcher {
         if (!p) {
             return;
         }
+        ++flat_metric().network_interface_tcp_packets;
 
         auto port = ntohs(p->th_sport);
         switch (p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
@@ -141,6 +143,7 @@ struct network_interface_watcher {
         if (!p) {
             return;
         }
+        ++flat_metric().network_interface_udp_packets;
 
         auto port = ntohs(p->uh_dport);
         if (port < env("udp_recv_tracking_min_port", 10000)) {
@@ -266,6 +269,7 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
     uint16_t host_ether_type_or_len = ntohs(ether->ether_type_or_len);
     switch (host_ether_type_or_len) {
         case (uint16_t) ether_type::IPv4:
+            ++flat_metric().network_interface_ether_ipv4_packets;
             note_ip_packet(h, bytes);
 
             if (auto p = wire_header<ether_header, ip_header>::header_from_packet(bytes, h->caplen)) {
@@ -275,10 +279,12 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
             }
             break;
         case (uint16_t) ether_type::ARP:
+            ++flat_metric().network_interface_ether_arp_packets;
             note_arp_packet_sent(h, bytes);
             break;
         default:
             if (host_ether_type_or_len <= 1500) {
+                ++flat_metric().network_interface_ether_llc_packets;
                 if (auto p = wire_header<ether_header, llc_stp_bpdu>::header_from_packet(bytes, h->caplen)) {
                     if (p->llc_dsap == llc_lsap::LLC_LSAP_STP
                         && p->llc_ssap == llc_lsap::LLC_LSAP_STP
