@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-
 enum class ip_protocol : uint8_t {
     ICMP = 1,
     TCP = 6,
@@ -61,19 +60,12 @@ struct macaddr {
         return as_num;
     }
 
-    inline uint32_t mac_manufacturer() const {
-        return (uint32_t) (as_number() >> 24);
-    }
+    inline uint32_t mac_manufacturer() const { return (uint32_t) (as_number() >> 24); }
 
-    auto inline operator==(macaddr const &other) const {
-        return as_number() == other.as_number();
-    }
+    auto inline operator==(macaddr const &other) const { return as_number() == other.as_number(); }
 
-    auto inline operator!=(macaddr const &other) const {
-        return as_number() != other.as_number();
-    }
+    auto inline operator!=(macaddr const &other) const { return as_number() != other.as_number(); }
 } __attribute__((__packed__));
-
 
 inline std::ostream &operator<<(std::ostream &os, macaddr const &m) {
     const char *hex_digits = "0123456789abcdef";
@@ -91,9 +83,7 @@ inline std::ostream &operator<<(std::ostream &os, macaddr const &m) {
 namespace std {
     template<>
     struct hash<macaddr> {
-        inline size_t operator()(macaddr const &ma) const {
-            return std::hash<uint64_t>()(ma.as_number());
-        }
+        inline size_t operator()(macaddr const &ma) const { return std::hash<uint64_t>()(ma.as_number()); }
     };
 }// namespace std
 
@@ -185,7 +175,6 @@ enum class dns_qclass : uint16_t {
     DNS_QCLASS_INET = 1,
 };
 
-
 enum class llc_lsap : uint8_t {
     LLC_LSAP_STP = 0x42,
 };
@@ -232,9 +221,5 @@ sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family = A
 std::string maybe_obfuscate_address_string(std::string_view address);
 
 template<typename address_type>
-inline std::string maybe_obfuscate_address(address_type &&a) {
-    return maybe_obfuscate_address_string(str(a));
-}
-inline double timeval_to_unixtime(timeval const &tv) {
-    return tv.tv_sec + tv.tv_usec / 1e6;
-}
+inline std::string maybe_obfuscate_address(address_type &&a) { return maybe_obfuscate_address_string(str(a)); }
+inline double timeval_to_unixtime(timeval const &tv) { return tv.tv_sec + tv.tv_usec / 1e6; }

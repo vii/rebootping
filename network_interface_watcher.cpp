@@ -11,7 +11,6 @@ struct network_interface_watcher {
     explicit network_interface_watcher(std::string_view name) : interface_name(name) {}
     void learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes);
 
-
     network_interface_watcher(network_interface_watcher const &) = delete;
 
     network_interface_watcher(network_interface_watcher &&) = delete;
@@ -44,9 +43,7 @@ struct network_interface_watcher {
             }
             return (network_addr) 0;
         };
-        auto eat_short = [&]() {
-            return eat_one() * 256 + eat_one();
-        };
+        auto eat_short = [&]() { return eat_one() * 256 + eat_one(); };
         auto eat_qname = [&]() {
             std::ostringstream oss;
             const u_char *saved_ptr = nullptr;
@@ -114,17 +111,14 @@ struct network_interface_watcher {
                     eat_qname();
                     break;
                 default:
-                    //std::cout << "answer qname " << name << " type " << qtype << " class " << qclass << " ttl " << ttl << " rdlength " << rdlength << std::endl;
+                    // std::cout << "answer qname " << name << " type " << qtype << " class " << qclass << " ttl " << ttl << " rdlength " << rdlength << std::endl;
                     break;
             }
         }
     }
 
     void note_tcp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto p = wire_header<
-                ether_header,
-                ip_header,
-                tcp_header>::header_from_packet(bytes, h->caplen);
+        auto p = wire_header<ether_header, ip_header, tcp_header>::header_from_packet(bytes, h->caplen);
         if (!p) {
             return;
         }
@@ -133,17 +127,17 @@ struct network_interface_watcher {
         auto port = ntohs(p->th_sport);
         switch (p->th_flags & ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK)) {
             case ((uint8_t) tcp_flags::SYN | (uint8_t) tcp_flags::ACK):
-                write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).tcp_ports().notice_key(port);
+                write_locked_reference(tcp_accept_record_store())
+                        ->tcp_macaddr_index(p->ether_shost)
+                        .add_if_missing(timeval_to_unixtime(h->ts))
+                        .tcp_ports()
+                        .notice_key(port);
                 break;
         }
     }
 
-
     void note_udp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto p = wire_header<
-                ether_header,
-                ip_header,
-                udp_header>::header_from_packet(bytes, h->caplen);
+        auto p = wire_header<ether_header, ip_header, udp_header>::header_from_packet(bytes, h->caplen);
         if (!p) {
             return;
         }
@@ -151,7 +145,11 @@ struct network_interface_watcher {
 
         auto port = ntohs(p->uh_dport);
         if (port < env("udp_recv_tracking_min_port", 10000)) {
-            write_locked_reference(udp_recv_record_store())->udp_macaddr_index(p->ether_dhost).add_if_missing(timeval_to_unixtime(h->ts)).udp_ports().notice_key(port);
+            write_locked_reference(udp_recv_record_store())
+                    ->udp_macaddr_index(p->ether_dhost)
+                    .add_if_missing(timeval_to_unixtime(h->ts))
+                    .udp_ports()
+                    .notice_key(port);
         }
 
         if (auto dns_p = wire_header<ether_header, ip_header, udp_header, dns_header>::header_from_packet(bytes, h->caplen)) {
@@ -162,9 +160,7 @@ struct network_interface_watcher {
     }
 
     void note_ip_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto p = wire_header<
-                ether_header,
-                ip_header>::header_from_packet(bytes, h->caplen);
+        auto p = wire_header<ether_header, ip_header>::header_from_packet(bytes, h->caplen);
 
         if (!p) {
             return;
@@ -179,13 +175,15 @@ struct network_interface_watcher {
                 break;
         }
 
-        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).ip_contact_addrs().notice_key(p->ip_dst.s_addr);
+        write_locked_reference(ip_contact_record_store())
+                ->ip_contact_macaddr_index(p->ether_shost)
+                .add_if_missing(timeval_to_unixtime(h->ts))
+                .ip_contact_addrs()
+                .notice_key(p->ip_dst.s_addr);
     }
 
     void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
-        auto p = wire_header<
-                ether_header,
-                arp_header>::header_from_packet(bytes, h->caplen);
+        auto p = wire_header<ether_header, arp_header>::header_from_packet(bytes, h->caplen);
         if (!p) {
             return;
         }
@@ -202,7 +200,11 @@ struct network_interface_watcher {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(interface_name, p->ether_shost)).add_if_missing(timeval_to_unixtime(h->ts)).arp_addresses().notice_key(p->arp_spa.s_addr);
+        write_locked_reference(arp_response_record_store())
+                ->arp_macaddr_index(std::make_pair(interface_name, p->ether_shost))
+                .add_if_missing(timeval_to_unixtime(h->ts))
+                .arp_addresses()
+                .notice_key(p->arp_spa.s_addr);
     }
 
     void note_stp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -212,10 +214,7 @@ struct network_interface_watcher {
         }
 
         auto unixtime = timeval_to_unixtime(h->ts);
-        write_locked_reference(stp_record_store())
-                ->stp_source_macaddr_index(p->ether_shost)
-                .add_if_missing(unixtime)
-                .stp_unixtime() = unixtime;
+        write_locked_reference(stp_record_store())->stp_source_macaddr_index(p->ether_shost).add_if_missing(unixtime).stp_unixtime() = unixtime;
     }
 };
 
@@ -230,11 +229,8 @@ struct network_interface_watcher_live : network_interface_watcher, loop_thread {
         add_thread_context _("pcap_interface", interface_name);
 
         auto ret = pcap_loop(
-                interface_pcap,
-                -1 /*cnt*/,
-                [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-                    ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
-                },
+                interface_pcap, -1 /*cnt*/,
+                [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) { ((network_interface_watcher_live *) user)->process_one_packet(h, bytes); },
                 (u_char *) this);
         if (ret == -1) {
             std::cerr << "pcap_loop " << interface_name << " " << pcap_geterr(interface_pcap) << std::endl;
@@ -257,7 +253,6 @@ struct network_interface_watcher_live : network_interface_watcher, loop_thread {
         }
     }
 };
-
 
 void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
     auto ether = wire_header<ether_header>::header_from_packet(bytes, h->caplen);
@@ -308,50 +303,41 @@ void network_interface_watcher_learn_from_pcap_file(std::string const &filename)
         }
     });
     auto ret = pcap_loop(
-            pcap,
-            -1 /*cnt*/,
-            [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-                ((network_interface_watcher *) user)->learn_from_packet(h, bytes);
-            },
+            pcap, -1 /*cnt*/,
+            [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) { ((network_interface_watcher *) user)->learn_from_packet(h, bytes); },
             (u_char *) &watcher);
     if (ret == -1) {
         throw std::runtime_error(str("pcap_loop failed on ", filename, ": ", pcap_geterr(pcap)));
     }
 }
 
-
-network_interface_watcher_live::network_interface_watcher_live(std::string_view name)
-    : network_interface_watcher(name), loop_thread() {
-
-    loop_spawn();
-}
+network_interface_watcher_live::network_interface_watcher_live(std::string_view name) : network_interface_watcher(name), loop_thread() { loop_spawn(); }
 
 void network_interface_watcher_live::loop_started() {
     char errbuf[PCAP_ERRBUF_SIZE];
-    interface_pcap = pcap_open_live(
-            interface_name.c_str(),
-            10 * 1024,//sizeof(rebootping_ping_ether_packet) /* snaplen */,
-            1 /* promiscuous */,
-            1 /* packet buffer timeout in ms; allows buffering up to 1ms of packets. See https://www.tcpdump.org/manpages/pcap.3pcap.html */,
-            errbuf);
+    interface_pcap =
+            pcap_open_live(interface_name.c_str(),
+                           10 * 1024,// sizeof(rebootping_ping_ether_packet) /* snaplen */,
+                           1 /* promiscuous */,
+                           1 /* packet buffer timeout in ms; allows buffering up to 1ms of packets. See https://www.tcpdump.org/manpages/pcap.3pcap.html */, errbuf);
     if (!interface_pcap) {
         std::cerr << "pcap_open_live " << interface_name << " " << errbuf << std::endl;
         loop_stop();
         return;
     }
     /* filter all non ICMP traffic
-    bpf_program filter;
-    auto c = pcap_compile(interface_pcap, &filter, "proto 1", 1 // optimize
-    , PCAP_NETMASK_UNKNOWN);
-    if (c == 0) {
-        auto sf = pcap_setfilter(interface_pcap, &filter);
-        if (sf != 0) {
-            std::cerr << "pcap_setfilter failed " << pcap_geterr(interface_pcap) << std::endl;
-        }
-    } else {
-        std::cerr << "pcap_compile failed " << pcap_geterr(interface_pcap) << std::endl;
-    }
-    */
+  bpf_program filter;
+  auto c = pcap_compile(interface_pcap, &filter, "proto 1", 1 // optimize
+  , PCAP_NETMASK_UNKNOWN);
+  if (c == 0) {
+      auto sf = pcap_setfilter(interface_pcap, &filter);
+      if (sf != 0) {
+          std::cerr << "pcap_setfilter failed " << pcap_geterr(interface_pcap) << std::endl;
+      }
+  } else {
+      std::cerr << "pcap_compile failed " << pcap_geterr(interface_pcap) << std::endl;
+  }
+  */
 
     rebootping_event_log("network_interface_watcher_poll_interface", interface_name);
 }
@@ -360,12 +346,7 @@ limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const ma
     std::lock_guard _{dumpers_mutex};
     auto i = macaddr_dumpers.find(ma);
     if (i == macaddr_dumpers.end()) {
-        i = macaddr_dumpers.insert(
-                                   std::make_pair(
-                                           ma,
-                                           std::make_unique<limited_pcap_dumper>(
-                                                   interface_pcap,
-                                                   limited_pcap_dumper_filename(interface_name, ma))))
+        i = macaddr_dumpers.insert(std::make_pair(ma, std::make_unique<limited_pcap_dumper>(interface_pcap, limited_pcap_dumper_filename(interface_name, ma))))
                     .first;
     }
     return *i->second;

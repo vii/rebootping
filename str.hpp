@@ -10,7 +10,8 @@ inline std::ostream &operator<<(std::ostream &os, std::unordered_map<key_type, v
     os << "{";
     bool first = true;
     for (auto const &[k, v] : h) {
-        if (!first) os << ",";
+        if (!first)
+            os << ",";
         first = false;
         os << k << ":" << v;
     }

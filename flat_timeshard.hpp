@@ -29,7 +29,6 @@ struct flat_bytes_interned_tag {
 };
 static_assert(sizeof(flat_bytes_interned_tag) == sizeof(uint64_t));
 
-
 template<typename mmap_field, typename offset_type>
 struct flat_bytes_ptr {
     mmap_field &flat_field;
@@ -43,9 +42,7 @@ struct flat_bytes_ptr {
         }
 
         auto size = flat_field.smap_string_length(flat_bytes_offset.bytes_offset);
-        return std::string_view(
-                flat_field.smap_string_ptr(offset, size),
-                size);
+        return std::string_view(flat_field.smap_string_ptr(offset, size), size);
     }
 
     flat_bytes_ptr &operator=(std::string_view other)
@@ -57,10 +54,7 @@ struct flat_bytes_ptr {
 };
 
 template<>
-[[nodiscard]] inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) {
-    return flat_hash_function(k.bytes_offset);
-}
-
+[[nodiscard]] inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) { return flat_hash_function(k.bytes_offset); }
 
 #define flat_bytes_ptr_op(op)                                                                                                               \
     template<typename mmap, typename offset_type>                                                                                           \
@@ -119,39 +113,30 @@ struct flat_timeshard {
             throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ", dir, " magic ", timeshard_header_ref().flat_timeshard_magic));
         }
         if (timeshard_header_ref().flat_timeshard_version > highest_supported_version.flat_timeshard_version) {
-            throw std::runtime_error(str("flat_timeshard_version too new: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, ">", highest_supported_version.flat_timeshard_version));
+            throw std::runtime_error(str("flat_timeshard_version too new: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, ">",
+                                         highest_supported_version.flat_timeshard_version));
         }
         if (timeshard_header_ref().flat_timeshard_version < lowest_supported_version.flat_timeshard_version) {
-            throw std::runtime_error(str("flat_timeshard_version too old: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, "<", lowest_supported_version.flat_timeshard_version));
+            throw std::runtime_error(str("flat_timeshard_version too old: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, "<",
+                                         lowest_supported_version.flat_timeshard_version));
         }
         timeshard_reload_interned_strings();
     }
     flat_timeshard(flat_timeshard const &) = delete;
     flat_timeshard &operator=(flat_timeshard const &) = delete;
 
-    inline flat_timeshard_header &timeshard_header_ref() {
-        return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
-    }
-    inline flat_timeshard_header const &timeshard_header_ref() const {
-        return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0);
-    }
+    inline flat_timeshard_header &timeshard_header_ref() { return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0); }
+    inline flat_timeshard_header const &timeshard_header_ref() const { return flat_timeshard_main_mmap.mmap_cast<flat_timeshard_header>(0); }
 
     void timeshard_commit_index(uint64_t index) {
         if (timeshard_header_ref().flat_timeshard_index_next != index) {
-            throw std::runtime_error(
-                    str("timeshard_commit_index index out of order: flat_timeshard_name ",
-                        flat_timeshard_name,
-                        " index ",
-                        index,
-                        " flat_timeshard_index_next ",
-                        timeshard_header_ref().flat_timeshard_index_next));
+            throw std::runtime_error(str("timeshard_commit_index index out of order: flat_timeshard_name ", flat_timeshard_name, " index ", index,
+                                         " flat_timeshard_index_next ", timeshard_header_ref().flat_timeshard_index_next));
         }
         timeshard_header_ref().flat_timeshard_index_next = index + 1;
     }
 
-    uint64_t flat_timeshard_index_next() const {
-        return timeshard_header_ref().flat_timeshard_index_next;
-    }
+    uint64_t flat_timeshard_index_next() const { return timeshard_header_ref().flat_timeshard_index_next; }
 
     void timeshard_reload_interned_strings() {
         interned_strings.clear();
@@ -196,9 +181,7 @@ struct flat_timeshard {
         return flat_bytes_interned_tag{offset};
     }
 
-    inline uint64_t &smap_string_length(uint64_t offset) {
-        return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset);
-    }
+    inline uint64_t &smap_string_length(uint64_t offset) { return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset); }
 
 private:
     uint64_t timeshard_allocate_bytes_prepare(uint64_t count) {
@@ -213,15 +196,11 @@ private:
         }
         return cur;
     }
-    void timeshard_allocate_bytes_finish(uint64_t count) {
-        timeshard_header_ref().flat_timeshard_bytes_start_next += count;
-    }
+    void timeshard_allocate_bytes_finish(uint64_t count) { timeshard_header_ref().flat_timeshard_bytes_start_next += count; }
 };
 
 template<typename field_type>
-constexpr size_t flat_field_sizeof() {
-    return sizeof(field_type);
-}
+constexpr size_t flat_field_sizeof() { return sizeof(field_type); }
 
 template<typename field_type>
 struct flat_timeshard_field_schema {
@@ -240,38 +219,27 @@ struct flat_timeshard_base_field {
     flat_mmap field_mmap;
 
     flat_timeshard_base_field(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
-        : field_timeshard(timeshard), field_mmap(dir + "/field_" + name + ".flatshard", settings) {
-    }
+        : field_timeshard(timeshard), field_mmap(dir + "/field_" + name + ".flatshard", settings) {}
 
-    void flat_timeshard_ensure_field_mmapped(uint64_t index) {
-        field_mmap.mmap_allocate_at_least((index + 1) * flat_field_sizeof<field_type>());
-    }
+    void flat_timeshard_ensure_field_mmapped(uint64_t index) { field_mmap.mmap_allocate_at_least((index + 1) * flat_field_sizeof<field_type>()); }
 };
 
 template<typename field_type>
 struct flat_timeshard_field : flat_timeshard_base_field<field_type> {
     using flat_timeshard_base_field<field_type>::flat_timeshard_base_field;
     using flat_timeshard_base_field<field_type>::field_mmap;
-    inline field_type &operator[](uint64_t index) const {
-        return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type));
-    }
+    inline field_type &operator[](uint64_t index) const { return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type)); }
 };
-
 
 template<typename timeshard_type>
 struct flat_timeshard_iterator {
     timeshard_type *flat_iterator_timeshard;
     uint64_t flat_iterator_index;
 
-    bool operator!() const {
-        return !flat_iterator_timeshard;
-    }
-    operator bool() const {
-        return !!*this;
-    }
+    bool operator!() const { return !flat_iterator_timeshard; }
+    operator bool() const { return !!*this; }
 
     flat_timeshard_iterator() : flat_iterator_timeshard(nullptr), flat_iterator_index(0) {}
 
-    flat_timeshard_iterator(timeshard_type *timeshard, uint64_t index) : flat_iterator_timeshard{timeshard},
-                                                                         flat_iterator_index{index} {}
+    flat_timeshard_iterator(timeshard_type *timeshard, uint64_t index) : flat_iterator_timeshard{timeshard}, flat_iterator_index{index} {}
 };

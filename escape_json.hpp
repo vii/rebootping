@@ -14,40 +14,18 @@ struct escape_json_tag {
     explicit escape_json_tag(constructor_type &&v) : escape_value(std::forward<constructor_type>(v)) {}
 };
 
-inline decltype(auto) escape_json(std::string_view value) {
-    return escape_json_tag<std::string_view>(value);
-}
-inline decltype(auto) escape_json(std::string const &value) {
-    return escape_json_tag<std::string_view>(value);
-}
-inline decltype(auto) escape_json(char const *value) {
-    return escape_json_tag<std::string_view>(value);
-}
+inline decltype(auto) escape_json(std::string_view value) { return escape_json_tag<std::string_view>(value); }
+inline decltype(auto) escape_json(std::string const &value) { return escape_json_tag<std::string_view>(value); }
+inline decltype(auto) escape_json(char const *value) { return escape_json_tag<std::string_view>(value); }
 
-inline decltype(auto) escape_json(int8_t c) {
-    return (int) c;
-}
-inline decltype(auto) escape_json(uint8_t c) {
-    return (int) c;
-}
-inline decltype(auto) escape_json(int32_t i) {
-    return i;
-}
-inline decltype(auto) escape_json(uint32_t i) {
-    return i;
-}
-inline decltype(auto) escape_json(uint64_t u) {
-    return escape_json_tag<decltype(u)>(u);
-}
-inline decltype(auto) escape_json(int64_t i) {
-    return escape_json_tag<decltype(i)>(i);
-}
-inline decltype(auto) escape_json(double d) {
-    return escape_json_tag<double>(d);
-}
-inline decltype(auto) escape_json(float d) {
-    return escape_json_tag<double>(d);
-}
+inline decltype(auto) escape_json(int8_t c) { return (int) c; }
+inline decltype(auto) escape_json(uint8_t c) { return (int) c; }
+inline decltype(auto) escape_json(int32_t i) { return i; }
+inline decltype(auto) escape_json(uint32_t i) { return i; }
+inline decltype(auto) escape_json(uint64_t u) { return escape_json_tag<decltype(u)>(u); }
+inline decltype(auto) escape_json(int64_t i) { return escape_json_tag<decltype(i)>(i); }
+inline decltype(auto) escape_json(double d) { return escape_json_tag<double>(d); }
+inline decltype(auto) escape_json(float d) { return escape_json_tag<double>(d); }
 
 std::ostream &operator<<(std::ostream &os, escape_json_tag<std::string_view> s);
 std::ostream &operator<<(std::ostream &os, escape_json_tag<double> s);
@@ -66,6 +44,4 @@ inline std::ostream &operator<<(std::ostream &os, escape_json_tag<int_type> i) {
 std::string escape_html_string(std::string const &s);
 
 template<typename input_type>
-inline std::string escape_html(input_type &&in) {
-    return escape_html_string(str(in));
-}
+inline std::string escape_html(input_type &&in) { return escape_html_string(str(in)); }

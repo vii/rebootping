@@ -12,7 +12,6 @@ struct flat_mfu_mru {
     std::array<uint64_t, mru> flat_mru_counts = {};
     uint64_t mru_pointer = 0;
 
-
     void notice_key(const key_type &key) {
         uint64_t emptiest_slot = 0;
         uint64_t emptiest_count = flat_mfu_counts[emptiest_slot];

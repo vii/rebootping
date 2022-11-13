@@ -44,7 +44,6 @@ inline void rebootping_test_fail(arg_types &&...args) {
     }                                                                                                                                                     \
     void suite_name##_##test_name()
 
-
 struct tmpdir {
     std::string tmpdir_name;
 

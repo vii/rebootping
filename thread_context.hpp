@@ -12,9 +12,7 @@ struct add_thread_context {
     inline add_thread_context(std::string_view key, std::string_view value) : thread_context_key(key), thread_context_previous(thread_context[key]) {
         set_thread_context_value(value);
     }
-    inline ~add_thread_context() {
-        set_thread_context_value(thread_context_previous);
-    }
+    inline ~add_thread_context() { set_thread_context_value(thread_context_previous); }
 
 private:
     inline void set_thread_context_value(std::string_view value) {

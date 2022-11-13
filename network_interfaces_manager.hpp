@@ -25,7 +25,5 @@ struct network_interfaces_manager {
 
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
 
-    bool has_nothing_to_manage() const {
-        return watchers.empty();
-    }
+    bool has_nothing_to_manage() const { return watchers.empty(); }
 };

@@ -5,7 +5,6 @@
 
 #include <cstdint>
 
-
 struct flat_smap_header {
     uint64_t flat_smap_magic = 0x666c6174736d6170;
     uint64_t flat_smap_version = 202111140000;
@@ -22,27 +21,27 @@ struct flat_timeshard_field_bytes_base : flat_timeshard_base_field<flat_bytes_of
     flat_mmap flat_smap;
 
     flat_timeshard_field_bytes_base(flat_timeshard &timeshard, std::string const &name, std::string const &dir, flat_mmap_settings const &settings)
-        : flat_timeshard_base_field<flat_bytes_offset_tag>(timeshard, name, dir, settings),
-          flat_smap(dir + "/field_" + name + ".flatsmap", settings) {
+        : flat_timeshard_base_field<flat_bytes_offset_tag>(timeshard, name, dir, settings), flat_smap(dir + "/field_" + name + ".flatsmap", settings) {
         if (!flat_smap.mmap_allocated_len()) {
             flat_smap.mmap_allocate_at_least(sizeof(flat_smap_header_ref()));
             flat_smap_header_ref() = flat_smap_header();
         }
         flat_smap_header highest_supported_version;
         if (highest_supported_version.flat_smap_magic != flat_smap_header_ref().flat_smap_magic) {
-            throw std::runtime_error(str("flat_smap_magic does not match in smap: ", flat_smap.flat_mmap_filename(), " magic ", flat_smap_header_ref().flat_smap_magic));
+            throw std::runtime_error(
+                    str("flat_smap_magic does not match in smap: ", flat_smap.flat_mmap_filename(), " magic ", flat_smap_header_ref().flat_smap_magic));
         }
         if (flat_smap_header_ref().flat_smap_version > highest_supported_version.flat_smap_version) {
-            throw std::runtime_error(str("flat_smap_version too new: smap ", flat_smap.flat_mmap_filename(), " at ", flat_smap_header_ref().flat_smap_version, ">", highest_supported_version.flat_smap_version));
+            throw std::runtime_error(str("flat_smap_version too new: smap ", flat_smap.flat_mmap_filename(), " at ", flat_smap_header_ref().flat_smap_version, ">",
+                                         highest_supported_version.flat_smap_version));
         }
         if (flat_smap_header_ref().flat_smap_offset_next > flat_smap.mmap_allocated_len()) {
-            throw std::runtime_error(str("flat_smap_offset_next too big: smap ", flat_smap.flat_mmap_filename(), " at ", flat_smap_header_ref().flat_smap_offset_next, ">", flat_smap.mmap_allocated_len()));
+            throw std::runtime_error(str("flat_smap_offset_next too big: smap ", flat_smap.flat_mmap_filename(), " at ", flat_smap_header_ref().flat_smap_offset_next,
+                                         ">", flat_smap.mmap_allocated_len()));
         }
     }
 
-    flat_smap_header &flat_smap_header_ref() {
-        return flat_smap.mmap_cast<flat_smap_header>(0);
-    }
+    flat_smap_header &flat_smap_header_ref() { return flat_smap.mmap_cast<flat_smap_header>(0); }
 
     uint64_t smap_allocate_bytes(uint64_t bytes) {
         auto offset = flat_smap_header_ref().flat_smap_offset_next;
@@ -52,13 +51,9 @@ struct flat_timeshard_field_bytes_base : flat_timeshard_base_field<flat_bytes_of
         return offset;
     }
 
-    inline length_type &smap_string_length(uint64_t offset) {
-        return flat_smap.mmap_cast<length_type>(offset);
-    }
+    inline length_type &smap_string_length(uint64_t offset) { return flat_smap.mmap_cast<length_type>(offset); }
 
-    inline char *smap_string_ptr(uint64_t offset, uint64_t size) {
-        return &flat_smap.mmap_cast<char>(offset + sizeof(length_type), size);
-    }
+    inline char *smap_string_ptr(uint64_t offset, uint64_t size) { return &flat_smap.mmap_cast<char>(offset + sizeof(length_type), size); }
 
     inline flat_bytes_offset_tag smap_store_string(std::string_view s) {
         if (s.empty()) {
@@ -80,8 +75,7 @@ struct flat_timeshard_field<std::string_view> : flat_timeshard_field_bytes_base 
     inline auto operator[](uint64_t index) const {
         return flat_bytes_ptr<flat_timeshard_field<std::string_view>, flat_bytes_offset_tag &>{
                 // TODO create distinction between a writeable flat_bytes_ptr and a const one
-                const_cast<flat_timeshard_field<std::string_view> &>(*this),
-                field_mmap.mmap_cast<flat_bytes_offset_tag>(index * sizeof(flat_bytes_offset_tag))};
+                const_cast<flat_timeshard_field<std::string_view> &>(*this), field_mmap.mmap_cast<flat_bytes_offset_tag>(index * sizeof(flat_bytes_offset_tag))};
     }
 };
 
@@ -94,8 +88,6 @@ struct flat_timeshard_field<flat_bytes_interned_ptr> : flat_timeshard_base_field
     using flat_timeshard_base_field<flat_bytes_offset_tag>::flat_timeshard_base_field;
 
     inline flat_bytes_interned_ptr operator[](uint64_t index) const {
-        return flat_bytes_interned_ptr{
-                field_timeshard,
-                field_mmap.mmap_cast<flat_bytes_interned_tag>(index * sizeof(flat_bytes_interned_tag))};
+        return flat_bytes_interned_ptr{field_timeshard, field_mmap.mmap_cast<flat_bytes_interned_tag>(index * sizeof(flat_bytes_interned_tag))};
     }
 };

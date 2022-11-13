@@ -22,7 +22,6 @@ TEST(flat_mfu_mru_test_suite, just_one) {
     rebootping_test_check(fmmu.known_keys_and_counts()[1331], ==, 1);
 }
 
-
 TEST(flat_mfu_mru_test_suite, small_shuffle) {
     for (int i = 0; 10000 > i; ++i) {
         std::array<int, 10> a = {1, 2, 3, 1, 2, 3, 1, 2, 3, 4};

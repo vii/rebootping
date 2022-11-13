@@ -40,15 +40,9 @@ public:
         loop_std_thread.join();
     }
 
-    inline void loop_stop() {
-        loop_should_stop.store(true);
-    }
-    [[nodiscard]] inline bool loop_is_stopping() const {
-        return loop_should_stop.load();
-    }
-    [[nodiscard]] inline bool loop_has_finished() const {
-        return loop_finished.load();
-    }
+    inline void loop_stop() { loop_should_stop.store(true); }
+    [[nodiscard]] inline bool loop_is_stopping() const { return loop_should_stop.load(); }
+    [[nodiscard]] inline bool loop_has_finished() const { return loop_finished.load(); }
 
 private:
     // would be reasonable to make this waitable not just a counter variable

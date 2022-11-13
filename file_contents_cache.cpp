@@ -6,7 +6,6 @@
 #include <sstream>
 #include <unordered_map>
 
-
 bool file_contents_cache_write(std::string const &filename, std::string const &contents) {
     static std::unordered_map<std::string, std::string> file_contents;
     static std::mutex mutex;

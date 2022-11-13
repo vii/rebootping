@@ -3,12 +3,9 @@
 #include "rebootping_test.hpp"
 
 struct rebootping_records_tmpdir : tmpdir {
-    rebootping_records_tmpdir() {
-        setenv("rebootping_records_dir", tmpdir_name.c_str(), 1);
-    }
+    rebootping_records_tmpdir() { setenv("rebootping_records_dir", tmpdir_name.c_str(), 1); }
 };
 [[maybe_unused]] rebootping_records_tmpdir global_rebootping_records_tmpdir;
-
 
 TEST(network_interface_watcher_suite, many_tcp_accepts) {
     macaddr m = {1, 2, 3, 4, 5, 6};
@@ -45,8 +42,7 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
     const uint64_t record_unixtime = 1631768403;
     const auto addr_dns_com = network_addr_from_sockaddr(sockaddr_from_string("43.243.131.114"));
     const auto lookup = macaddr_ip_lookup{
-            .lookup_macaddr = {
-                    0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
+            .lookup_macaddr = {0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
             .lookup_addr = addr_dns_com,
     };
 

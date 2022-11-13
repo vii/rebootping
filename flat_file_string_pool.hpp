@@ -10,14 +10,11 @@ struct flat_file_string_pool {
     std::unordered_map<std::string, pool_string_type> pool_cache;
     flat_mmap &file_map;
 
-    inline offset_type &pool_offset() {
-        return file_map.mmap_cast<offset_type>(0);
-    }
+    inline offset_type &pool_offset() { return file_map.mmap_cast<offset_type>(0); }
 
     inline flat_file_string_pool(flat_mmap &file_map_) : file_map(file_map_) {
         pool_string_type s;
-        for (s.string_offset = sizeof(offset_type);
-             s.string_offset < pool_offset(); s.string_offset += s.string_len(file_map)) {
+        for (s.string_offset = sizeof(offset_type); s.string_offset < pool_offset(); s.string_offset += s.string_len(file_map)) {
             pool_cache[s] = s;
         }
     }

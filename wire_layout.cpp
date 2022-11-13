@@ -15,8 +15,7 @@ std::ostream &operator<<(std::ostream &os, const in_addr &i) {
 
 std::ostream &operator<<(std::ostream &os, const sockaddr &s) {
     char str[INET6_ADDRSTRLEN + INET_ADDRSTRLEN];
-    if (auto ret = getnameinfo(&s, sizeof(s), str, sizeof(str),
-                               nullptr, 0, NI_NUMERICHOST | NI_NUMERICSERV)) {
+    if (auto ret = getnameinfo(&s, sizeof(s), str, sizeof(str), nullptr, 0, NI_NUMERICHOST | NI_NUMERICSERV)) {
         return os << "getnameinfo failed " << gai_strerror(ret);
     } else {
         return os << str;
@@ -43,8 +42,7 @@ namespace {
         std::unordered_map<uint32_t, std::string> ret;
 
         auto stream = std::ifstream{flat_env::oui_database_filename()};
-        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)",
-                                             std::regex::extended);
+        auto manufacturer_regex = std::regex("([[:xdigit:]]{6})[[:space:]]+\\([^)]*\\)[[:space:]]+(.+)", std::regex::extended);
 
         for (std::string line; std::getline(stream, line);) {
             std::smatch matches;
@@ -71,13 +69,7 @@ std::string services_port_name(int port, const std::string &proto) {
     servent servbuf;
     servent *result = nullptr;
     char buffer[BUFSIZ];
-    auto ret = getservbyport_r(
-            htons(port),
-            proto.c_str(),
-            &servbuf,
-            buffer,
-            sizeof(buffer),
-            &result);
+    auto ret = getservbyport_r(htons(port), proto.c_str(), &servbuf, buffer, sizeof(buffer), &result);
     if (ret || !result) {
         return {};
     }

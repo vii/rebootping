@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <fstream>
 
-
 namespace {
 
     std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const &record) {
@@ -134,7 +133,8 @@ void report_html_dump(std::ostream &out) {
             out << "<h3 class=last_stp_router_update><span class=unixtime>" << i->second << "</span></h3>" << std::endl;
         }
         for (auto &&if_name : mac_to_interfaces[mac]) {
-            out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>" << std::endl;
+            out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>"
+                << std::endl;
         }
         std::unordered_map<uint16_t, uint64_t> tcp_port_counts;
         // TODO allow const access to this kind of lookup so we can use a read lock
@@ -158,7 +158,8 @@ void report_html_dump(std::ostream &out) {
         }
         for (auto &&[a, c] : connect_counts) {
             std::string address;
-            for (auto &&dns : write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr = mac, .lookup_addr = a})) {
+            for (auto &&dns :
+                 write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr = mac, .lookup_addr = a})) {
                 address = dns.dns_response_hostname().operator std::string_view();
             }
             out << "<p class=contacted_ip>" << escape_html(address) << " " << in_addr{a} << " count " << c << "</p>\n";

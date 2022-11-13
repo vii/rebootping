@@ -5,7 +5,6 @@
 #include <iostream>
 #include <vector>
 
-
 std::vector<std::pair<std::string, std::function<void()>>> &rebootping_tests() {
     static std::vector<std::pair<std::string, std::function<void()>>> _;
     return _;

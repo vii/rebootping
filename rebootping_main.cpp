@@ -14,9 +14,7 @@
 
 int global_exit_value;
 
-void signal_callback_handler(int signum) {
-    global_exit_value = signum;
-}
+void signal_callback_handler(int signum) { global_exit_value = signum; }
 
 int main() {
     signal(SIGINT, signal_callback_handler);

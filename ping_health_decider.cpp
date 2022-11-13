@@ -19,7 +19,6 @@ namespace std {
     };
 }// namespace std
 
-
 namespace {
     struct ping_health_decider {
         void ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping);
@@ -42,12 +41,10 @@ namespace {
             return ret;
         }();
 
-
         std::unordered_set<std::string> decide_health(double now);
 
         void act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now = now_unixtime());
     };
-
 
     uint16_t icmp_checksum_endian_safe(void *buf, size_t length) {
         auto buffer = (uint16_t *) buf;
@@ -84,20 +81,12 @@ namespace {
         int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int) ip_protocol::ICMP);
 
         void send_ping(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) const {
-            CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(),
-                               if_name.size());
+            CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(), if_name.size());
             CALL_ERRNO_MINUS_1(bind, ping_socket, &src_addr, sizeof(src_addr));
 
             auto packet = build_icmp_packet_and_store_record(src_addr, dest_addr, if_name);
 
-            auto sent_size = CALL_ERRNO_MINUS_1(
-                    sendto,
-                    ping_socket,
-                    &packet,
-                    sizeof(packet),
-                    0,
-                    &dest_addr,
-                    sizeof(dest_addr));
+            auto sent_size = CALL_ERRNO_MINUS_1(sendto, ping_socket, &packet, sizeof(packet), 0, &dest_addr, sizeof(dest_addr));
             if (sent_size != sizeof(packet)) {
                 throw std::runtime_error("ping ICMP packet not fully sent");
             }
@@ -179,7 +168,6 @@ namespace {
         }
     }
 
-
     std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
         std::unordered_set<std::string> healthy_interfaces;
         uint64_t best_count = 0;
@@ -229,7 +217,6 @@ namespace {
                 r.flat_iterator_timeshard->health_interface_index.index_linked_field_add(interface, r);
             };
 
-
             {
                 auto write = write_locked_reference(interface_health_record_store());
                 last_record = write->health_interface_index(interface).add_if_missing(new_fields, now);
@@ -250,10 +237,7 @@ namespace {
     void ping_health_decider::act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now) {
         bool interfaces_have_changed = false;
         auto write_unhealthy = [&](std::string const &if_name, bool unhealthy) {
-            auto health_file = str(
-                    env("health_file_prefix", "rebootping-"),
-                    if_name,
-                    env("health_file_suffix", ".status"));
+            auto health_file = str(env("health_file_prefix", "rebootping-"), if_name, env("health_file_suffix", ".status"));
             if (file_contents_cache_write(health_file, str(int(unhealthy)))) {
                 rebootping_event_log(unhealthy ? "rebootping_unhealthy" : "rebootping_healthy", if_name);
                 interfaces_have_changed = true;
@@ -269,14 +253,11 @@ namespace {
             }
         }
         std::vector<std::string> healthy_sorted{healthy_interfaces.begin(), healthy_interfaces.end()};
-        std::sort(healthy_sorted.begin(), healthy_sorted.end(), [&](auto &&a, auto &&b) {
-            return if_records[a].health_last_mark_unhealthy_unixtime() < if_records[b].health_last_mark_unhealthy_unixtime();
-        });
+        std::sort(healthy_sorted.begin(), healthy_sorted.end(),
+                  [&](auto &&a, auto &&b) { return if_records[a].health_last_mark_unhealthy_unixtime() < if_records[b].health_last_mark_unhealthy_unixtime(); });
         bool first_healthy = true;
         for (auto &&i : healthy_sorted) {
-            if (!first_healthy &&
-                if_records[i].health_last_mark_unhealthy_unixtime() <
-                        now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
+            if (!first_healthy && if_records[i].health_last_mark_unhealthy_unixtime() < now - env("wait_before_mark_interface_healthy_seconds", 3600.0)) {
                 break;
             }
             first_healthy = false;

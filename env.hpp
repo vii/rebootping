@@ -16,9 +16,7 @@ inline T env_convert_default(T &&default_value, char const *given) {
 }
 
 template<>
-inline std::string env_convert_default(std::string &&default_value, char const *given) {
-    return given;
-}
+inline std::string env_convert_default(std::string &&default_value, char const *given) { return given; }
 
 template<typename T>
 inline T env(char const *var, T default_value) {
@@ -29,9 +27,7 @@ inline T env(char const *var, T default_value) {
     return env_convert_default(std::move(default_value), given);
 }
 
-inline std::string env(char const *var, char const *default_value) {
-    return env(var, std::string(default_value));
-}
+inline std::string env(char const *var, char const *default_value) { return env(var, std::string(default_value)); }
 
 template<typename T>
 inline std::vector<T> env(char const *var, std::vector<T> const &default_value) {

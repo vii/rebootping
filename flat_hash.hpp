@@ -15,7 +15,6 @@ struct flat_hash_header {
     uint64_t flat_hash_entry_count = 0;
 };
 
-
 // Fast splittable pseudorandom number generators
 // http://gee.cs.oswego.edu/dl/papers/oopsla14.pdf
 inline uint64_t constexpr flat_hash_mix(uint64_t z) {
@@ -25,17 +24,12 @@ inline uint64_t constexpr flat_hash_mix(uint64_t z) {
 }
 
 template<typename key_type>
-inline uint64_t
-flat_hash_function(key_type const &k) {
-    return flat_hash_mix(k);
-}
+inline uint64_t flat_hash_function(key_type const &k) { return flat_hash_mix(k); }
 
 template<uint64_t max_val>
 struct smallest_uint {
-    using type = typename std::conditional < max_val < (1 << 8),
-          uint8_t,
-          typename std::conditional < max_val<(1 << 16),
-                                              uint16_t, typename std::conditional<max_val<(1llu << 32), uint32_t, uint64_t>::type>::type>::type;
+    using type = typename std::conditional < max_val < (1 << 8), uint8_t,
+          typename std::conditional < max_val<(1 << 16), uint16_t, typename std::conditional<max_val<(1llu << 32), uint32_t, uint64_t>::type>::type>::type;
 };
 static_assert(std::is_integral<smallest_uint<1l << 31>::type>::value);
 
@@ -105,24 +99,20 @@ static_assert(ror(1, 1) == (1ull << 63), "ror 1");
 
 struct flat_hash_function_class {
     template<typename... args_types>
-    decltype(auto) operator()(args_types &&...args) const {
-        return flat_hash_function(std::forward<args_types...>(args...));
-    }
+    decltype(auto) operator()(args_types &&...args) const { return flat_hash_function(std::forward<args_types...>(args...)); }
 };
 
 struct flat_hash_compare_function_class {
     template<typename key_type, typename input_type>
-    std::optional<key_type> compare_prepare_key_maybe(input_type &&i) const {
-        return {(key_type) i};
-    }
+    std::optional<key_type> compare_prepare_key_maybe(input_type &&i) const { return {(key_type) i}; }
     template<typename key_type, typename input_type>
-    key_type compare_prepare_key(input_type &&i) const {
-        return (key_type) i;
-    }
+    key_type compare_prepare_key(input_type &&i) const { return (key_type) i; }
 };
 
 template<typename comparer, typename lhs_type, typename rhs_type, typename... fallback_overload>
-inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&...ignored) { return lhs == rhs; }
+inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&...ignored) {
+    return lhs == rhs;
+}
 
 template<typename key_type, typename comparer, typename input_type>
 inline decltype(auto) flat_hash_prepare_key_maybe(comparer const &c, input_type &&i) {
@@ -134,7 +124,8 @@ inline decltype(auto) flat_hash_prepare_key(comparer const &c, input_type &&i) {
     return c.template compare_prepare_key<key_type>(i);
 }
 
-template<typename key_type, typename value_type, typename hash_function = flat_hash_function_class, typename compare_function = flat_hash_compare_function_class, unsigned marker_bits = 8>
+template<typename key_type, typename value_type, typename hash_function = flat_hash_function_class,
+         typename compare_function = flat_hash_compare_function_class, unsigned marker_bits = 8>
 struct flat_hash : hash_function {
     flat_mmap hash_mmap;
     using hash_page_type = flat_hash_page<key_type, value_type, 1 << marker_bits, 1 << (marker_bits - 1)>;
@@ -143,8 +134,8 @@ struct flat_hash : hash_function {
 
     template<typename... arg_types>
     explicit flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),
-                       compare_function &&passed_compare_function = compare_function(),
-                       arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap(filename, settings), hash_compare_function(passed_compare_function) {
+                       compare_function &&passed_compare_function = compare_function(), arg_types &&...args)
+        : hash_function(std::forward<arg_types>(args)...), hash_mmap(filename, settings), hash_compare_function(passed_compare_function) {
         if (!hash_mmap.mmap_allocated_len()) {
             hash_mmap.mmap_allocate_at_least(sizeof(flat_hash_header));
             hash_header() = flat_hash_header();
@@ -158,13 +149,9 @@ struct flat_hash : hash_function {
             }
         }
     }
-    flat_hash_header &hash_header() {
-        return hash_mmap.template mmap_cast<flat_hash_header>(0);
-    }
+    flat_hash_header &hash_header() { return hash_mmap.template mmap_cast<flat_hash_header>(0); }
 
-    static inline constexpr uint64_t hash_level_offset(unsigned level) {
-        return ((1 << level) - 1) * sizeof(hash_page_type) + sizeof(flat_hash_header);
-    }
+    static inline constexpr uint64_t hash_level_offset(unsigned level) { return ((1 << level) - 1) * sizeof(hash_page_type) + sizeof(flat_hash_header); }
     static_assert(hash_level_offset(0) - sizeof(flat_hash_header) == 0, "first level starts at 0");
     static_assert(hash_level_offset(1) - sizeof(flat_hash_header) == 1 * sizeof(hash_page_type), "second level starts at 1");
     static_assert(hash_level_offset(2) - sizeof(flat_hash_header) == 3 * sizeof(hash_page_type), "second level starts at 3");
@@ -173,8 +160,7 @@ struct flat_hash : hash_function {
     hash_page_type &hash_page_for_level(unsigned level, uint64_t rotated_hash) const {
         uint64_t page_jump = rotated_hash & ((1 << level) - 1);
         assert(hash_level_offset(level + 1) > hash_level_offset(level) + page_jump * sizeof(hash_page_type));
-        return hash_mmap.mmap_cast<hash_page_type>(
-                hash_level_offset(level) + page_jump * sizeof(hash_page_type));
+        return hash_mmap.mmap_cast<hash_page_type>(hash_level_offset(level) + page_jump * sizeof(hash_page_type));
     }
 
     template<typename input_key>
@@ -228,9 +214,8 @@ struct flat_hash : hash_function {
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (page.page_del_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k, [level, this](key_type const &nk) {
-                    return ror((*this)(nk), (level * (level + 1)) / 2) & ((1 << marker_bits) - 1);
-                })) {
+            if (page.page_del_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k,
+                                  [level, this](key_type const &nk) { return ror((*this)(nk), (level * (level + 1)) / 2) & ((1 << marker_bits) - 1); })) {
                 --hash_header().flat_hash_entry_count;
                 return true;
             }

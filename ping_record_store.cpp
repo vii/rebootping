@@ -9,9 +9,7 @@ namespace {
     uint64_t uint64_random() {
         static std::random_device random_device;
         static std::mt19937_64 random_engine{random_device()};
-        static std::uniform_int_distribution<uint64_t> distro{
-                std::numeric_limits<std::uint64_t>::min(),
-                std::numeric_limits<std::uint64_t>::max()};
+        static std::uniform_int_distribution<uint64_t> distro{std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max()};
         return distro(random_engine);
     }
 
