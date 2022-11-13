@@ -18,7 +18,7 @@ inline std::ostream &operator<<(std::ostream &os, std::unordered_map<key_type, v
 }
 
 template<typename... Args>
-inline std::string str(Args &&... args) {
+inline std::string str(Args &&...args) {
     std::ostringstream oss;
     (oss << ... << args);
     return oss.str();

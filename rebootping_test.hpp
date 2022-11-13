@@ -16,7 +16,7 @@ std::vector<std::pair<std::string, std::function<void()>>> &rebootping_tests();
 extern std::vector<std::string> rebootping_test_failures;
 
 template<typename... arg_types>
-inline void rebootping_test_fail(arg_types &&... args) {
+inline void rebootping_test_fail(arg_types &&...args) {
     auto s = str(args...);
     std::cout << "rebootping_test_fail " << s << std::endl;
     rebootping_test_failures.push_back(std::string{s});

@@ -10,11 +10,11 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     strategy:
-        matrix:
-          build_type: [Release, Debug]
-          # clang++ works with version 15 which is not available on 22.04 yet
-          cxx_compiler: [g++]
-    
+      matrix:
+        build_type: [Release, Debug]
+        # clang++ works with version 15 which is not available on 22.04 yet
+        cxx_compiler: [g++]
+
     steps:
       - name: Ubuntu apt install deps
         run: sudo apt-get install -qy libpcap-dev build-essential cmake gcc g++ # clang
@@ -30,4 +30,4 @@ jobs:
 
       - name: Test
         working-directory: ${{github.workspace}}/build
-        run: ctest -C ${{matrix.build_type}} --output-on-failure --progress
+        run: ctest -C ${{matrix.build_type}} --output-on-failure --progress --schedule-random

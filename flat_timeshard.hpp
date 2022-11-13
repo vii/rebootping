@@ -48,14 +48,16 @@ struct flat_bytes_ptr {
                 size);
     }
 
-    flat_bytes_ptr &operator=(std::string_view other) requires std::is_reference_v<offset_type> {
+    flat_bytes_ptr &operator=(std::string_view other)
+        requires std::is_reference_v<offset_type>
+    {
         flat_bytes_offset.bytes_offset = flat_field.smap_store_string(other).bytes_offset;
         return *this;
     }
 };
 
 template<>
-inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) {
+[[nodiscard]] inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) {
     return flat_hash_function(k.bytes_offset);
 }
 
@@ -173,7 +175,7 @@ struct flat_timeshard {
         if (i != interned_strings.end()) {
             return flat_bytes_interned_tag{i->second};
         }
-        return {};
+        return std::nullopt;
     }
 
     flat_bytes_interned_tag smap_store_string(std::string_view s) {

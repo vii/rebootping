@@ -86,7 +86,7 @@ struct flat_timeshard_field<std::string_view> : flat_timeshard_field_bytes_base 
 };
 
 using flat_bytes_interned_ptr = flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag &>;
-using flat_bytes_const_interned_ptr = flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag const&>;
+using flat_bytes_const_interned_ptr = flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag const &>;
 using flat_bytes_field_ptr = flat_bytes_ptr<flat_timeshard_field<std::string_view>, flat_bytes_offset_tag &>;
 
 template<>

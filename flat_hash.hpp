@@ -105,7 +105,7 @@ static_assert(ror(1, 1) == (1ull << 63), "ror 1");
 
 struct flat_hash_function_class {
     template<typename... args_types>
-    decltype(auto) operator()(args_types &&... args) const {
+    decltype(auto) operator()(args_types &&...args) const {
         return flat_hash_function(std::forward<args_types...>(args...));
     }
 };
@@ -122,7 +122,7 @@ struct flat_hash_compare_function_class {
 };
 
 template<typename comparer, typename lhs_type, typename rhs_type, typename... fallback_overload>
-inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&... ignored) { return lhs == rhs; }
+inline bool flat_hash_compare(comparer const &, lhs_type const &lhs, rhs_type const &rhs, fallback_overload &&...ignored) { return lhs == rhs; }
 
 template<typename key_type, typename comparer, typename input_type>
 inline decltype(auto) flat_hash_prepare_key_maybe(comparer const &c, input_type &&i) {
@@ -144,7 +144,7 @@ struct flat_hash : hash_function {
     template<typename... arg_types>
     explicit flat_hash(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings(),
                        compare_function &&passed_compare_function = compare_function(),
-                       arg_types &&... args) : hash_function(std::forward<arg_types>(args)...), hash_mmap(filename, settings), hash_compare_function(passed_compare_function) {
+                       arg_types &&...args) : hash_function(std::forward<arg_types>(args)...), hash_mmap(filename, settings), hash_compare_function(passed_compare_function) {
         if (!hash_mmap.mmap_allocated_len()) {
             hash_mmap.mmap_allocate_at_least(sizeof(flat_hash_header));
             hash_header() = flat_hash_header();
@@ -189,7 +189,7 @@ struct flat_hash : hash_function {
             assert(hash_level_offset(level + 1) >= hash_level_offset(level));
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (auto v = page.page_find_key((marker_type)(rotated_hash & ((1 << marker_bits) - 1)), k, hash_compare_function)) {
+            if (auto v = page.page_find_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k, hash_compare_function)) {
                 return v;
             }
         }
@@ -228,7 +228,7 @@ struct flat_hash : hash_function {
         for (unsigned level = 0; hash_mmap.mmap_allocated_len() >= hash_level_offset(level + 1); ++level) {
             auto &page = hash_page_for_level(level, rotated_hash);
             rotated_hash = ror(rotated_hash, level);
-            if (page.page_del_key((marker_type)(rotated_hash & ((1 << marker_bits) - 1)), k, [level, this](key_type const &nk) {
+            if (page.page_del_key((marker_type) (rotated_hash & ((1 << marker_bits) - 1)), k, [level, this](key_type const &nk) {
                     return ror((*this)(nk), (level * (level + 1)) / 2) & ((1 << marker_bits) - 1);
                 })) {
                 --hash_header().flat_hash_entry_count;

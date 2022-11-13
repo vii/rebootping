@@ -19,7 +19,8 @@ int main() {
         try {
             f();
         } catch (std::exception const &e) {
-            rebootping_test_fail("test_exception in ", name, ": ", e.what());
+            rebootping_test_fail("test_exception in ", name, " ", typeid(e).name(), ": ", e.what());
+            throw;
         } catch (...) {
             rebootping_test_fail("test_exception unknown_exception in ", name);
             throw;

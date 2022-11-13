@@ -37,10 +37,8 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
         watchers.emplace(k, network_interface_watcher_thread(k));
     }
     std::erase_if(watchers, [](auto const &item) {
-      auto const &[key, value] = item;
-      return value->loop_has_finished();
+        auto const &[key, value] = item;
+        return value->loop_has_finished();
     });
     return known_ifs;
 }
-
-

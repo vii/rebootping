@@ -9,6 +9,7 @@
 
 #include <pcap/pcap.h>
 
+#include "loop_thread.hpp"
 #include <atomic>
 #include <cmath>
 #include <csignal>
@@ -20,8 +21,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "loop_thread.hpp"
 
 void network_interface_watcher_learn_from_pcap_file(std::string const &filename);
 std::unique_ptr<loop_thread> network_interface_watcher_thread(std::string interface_name);
-

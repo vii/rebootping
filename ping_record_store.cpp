@@ -1,7 +1,7 @@
 #include "ping_record_store.hpp"
+#include "flat_metrics.hpp"
 #include "network_flat_records.hpp"
 #include "rebootping_records_dir.hpp"
-#include "flat_metrics.hpp"
 
 #include <mutex>
 

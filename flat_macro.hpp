@@ -13,7 +13,7 @@
     __VA_OPT__(evaluate_for_each_at_least_one(f, __VA_ARGS__))
 #define evaluate_for_each_at_least_one(f, a, ...) \
     f a                                           \
-            defer_macro_once(evaluate_for_each_again)()(f, __VA_ARGS__)
+    defer_macro_once(evaluate_for_each_again)()(f, __VA_ARGS__)
 #define evaluate_for_each_again() evaluate_for_each_inside
 #define evaluate_for_each(f, ...) evaluate_macro_many(evaluate_for_each_inside(f, __VA_ARGS__))
 
@@ -24,7 +24,7 @@
     __VA_OPT__(, evaluate_for_each_comma_at_least_one(f, __VA_ARGS__))
 #define evaluate_for_each_comma_at_least_one(f, a, ...) \
     f a                                                 \
-            defer_macro_once(evaluate_for_each_comma_starting)()(f, __VA_ARGS__)
+    defer_macro_once(evaluate_for_each_comma_starting)()(f, __VA_ARGS__)
 #define evaluate_for_each_comma_starting() evaluate_for_each_comma_starting_inside
 #define evaluate_for_each_comma(f, ...) evaluate_macro_many(evaluate_for_each_comma_inside(f, __VA_ARGS__))
 

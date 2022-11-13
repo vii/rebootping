@@ -6,7 +6,7 @@
 
 class loop_thread {
 protected:
-    virtual bool loop_run_once() = 0; // return true to stop
+    virtual bool loop_run_once() = 0;// return true to stop
     inline virtual void loop_started() {}
     inline virtual void loop_stopped() {}
 
@@ -30,9 +30,10 @@ protected:
         });
     }
     loop_thread() = default;
+
 public:
     loop_thread(loop_thread const &) = delete;
-    loop_thread& operator=(loop_thread const&) = delete;
+    loop_thread &operator=(loop_thread const &) = delete;
 
     inline virtual ~loop_thread() {
         loop_should_stop.store(true);
@@ -55,6 +56,4 @@ private:
     std::atomic<bool> loop_should_stop = false;
     std::atomic<uint64_t> loop_count = 0;
     std::thread loop_std_thread;
-
 };
-

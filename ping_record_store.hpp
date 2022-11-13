@@ -28,10 +28,10 @@ struct rebootping_icmp_payload {
 } __attribute__((__packed__));
 
 struct rebootping_ping_ether_packet : wire_header<
-                                         ether_header,
-                                         ip_header,
-                                         icmp_header,
-                                         rebootping_icmp_payload> {
+                                              ether_header,
+                                              ip_header,
+                                              icmp_header,
+                                              rebootping_icmp_payload> {
 };
 
 struct rebootping_icmp_packet : wire_header<icmp_header, rebootping_icmp_payload> {

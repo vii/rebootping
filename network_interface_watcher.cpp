@@ -1,8 +1,8 @@
 #include "network_interface_watcher.hpp"
+#include "flat_metrics.hpp"
 #include "make_unique_ptr_closer.hpp"
 #include "network_flat_records.hpp"
 #include "rebootping_event.hpp"
-#include "flat_metrics.hpp"
 
 #include <mutex>
 
@@ -179,9 +179,7 @@ struct network_interface_watcher {
                 break;
         }
 
-        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts))
-                .ip_contact_addrs()
-                .notice_key(p->ip_dst.s_addr);
+        write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(p->ether_shost).add_if_missing(timeval_to_unixtime(h->ts)).ip_contact_addrs().notice_key(p->ip_dst.s_addr);
     }
 
     void note_arp_packet_sent(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -204,9 +202,7 @@ struct network_interface_watcher {
         if (p->arp_sender != p->ether_shost) {
             return;
         }
-        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(interface_name, p->ether_shost)).add_if_missing(timeval_to_unixtime(h->ts))
-                .arp_addresses()
-                .notice_key(p->arp_spa.s_addr);
+        write_locked_reference(arp_response_record_store())->arp_macaddr_index(std::make_pair(interface_name, p->ether_shost)).add_if_missing(timeval_to_unixtime(h->ts)).arp_addresses().notice_key(p->arp_spa.s_addr);
     }
 
     void note_stp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -237,7 +233,7 @@ struct network_interface_watcher_live : network_interface_watcher, loop_thread {
                 interface_pcap,
                 -1 /*cnt*/,
                 [](u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-                  ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
+                    ((network_interface_watcher_live *) user)->process_one_packet(h, bytes);
                 },
                 (u_char *) this);
         if (ret == -1) {
@@ -254,14 +250,13 @@ struct network_interface_watcher_live : network_interface_watcher, loop_thread {
     limited_pcap_dumper *existing_dumper_for_macaddr(macaddr const &ma);
 
     void process_one_packet(const struct pcap_pkthdr *h, const u_char *bytes);
-    ~network_interface_watcher_live() override  {
+    ~network_interface_watcher_live() override {
         if (interface_pcap) {
             pcap_close(interface_pcap);
             interface_pcap = nullptr;
         }
     }
 };
-
 
 
 void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -290,9 +285,7 @@ void network_interface_watcher::learn_from_packet(const struct pcap_pkthdr *h, c
             if (host_ether_type_or_len <= 1500) {
                 ++flat_metric().network_interface_ether_llc_packets;
                 if (auto p = wire_header<ether_header, llc_stp_bpdu>::header_from_packet(bytes, h->caplen)) {
-                    if (p->llc_dsap == llc_lsap::LLC_LSAP_STP
-                        && p->llc_ssap == llc_lsap::LLC_LSAP_STP
-                        && p->llc_control == llc_ctrl::LLC_CTRL_STP) {
+                    if (p->llc_dsap == llc_lsap::LLC_LSAP_STP && p->llc_ssap == llc_lsap::LLC_LSAP_STP && p->llc_control == llc_ctrl::LLC_CTRL_STP) {
                         note_stp_packet(h, bytes);
                     }
                 }
@@ -368,11 +361,11 @@ limited_pcap_dumper &network_interface_watcher_live::dumper_for_macaddr(const ma
     auto i = macaddr_dumpers.find(ma);
     if (i == macaddr_dumpers.end()) {
         i = macaddr_dumpers.insert(
-                                     std::make_pair(
-                                             ma,
-                                             std::make_unique<limited_pcap_dumper>(
-                                                     interface_pcap,
-                                                     limited_pcap_dumper_filename(interface_name, ma))))
+                                   std::make_pair(
+                                           ma,
+                                           std::make_unique<limited_pcap_dumper>(
+                                                   interface_pcap,
+                                                   limited_pcap_dumper_filename(interface_name, ma))))
                     .first;
     }
     return *i->second;

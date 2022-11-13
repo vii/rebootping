@@ -2,6 +2,7 @@
 
 #include "file_contents_cache.hpp"
 #include "limited_pcap_dumper.hpp"
+#include "loop_thread.hpp"
 #include "network_interface_watcher.hpp"
 #include "network_interfaces_manager.hpp"
 #include "now_unixtime.hpp"
@@ -18,14 +19,13 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "loop_thread.hpp"
 
 struct network_interfaces_manager {
     std::unordered_map<std::string, std::unique_ptr<loop_thread>> watchers;
 
     std::unordered_map<std::string, std::vector<sockaddr>> discover_known_ifs();
 
-    bool has_nothing_to_manage()const {
+    bool has_nothing_to_manage() const {
         return watchers.empty();
     }
 };

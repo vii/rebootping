@@ -75,7 +75,6 @@ inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_co
 }
 
 
-
 template<typename addr>
 inline uint64_t flat_hash_function(if_addr_lookup<addr> const &k) {
     return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_if.bytes_offset);

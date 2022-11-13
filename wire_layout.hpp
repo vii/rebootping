@@ -62,7 +62,7 @@ struct macaddr {
     }
 
     inline uint32_t mac_manufacturer() const {
-        return (uint32_t)(as_number() >> 24);
+        return (uint32_t) (as_number() >> 24);
     }
 
     auto inline operator==(macaddr const &other) const {
@@ -227,7 +227,7 @@ std::string oui_manufacturer_name(macaddr const &macaddr);
 
 std::string services_port_name(int port, std::string const &proto /* tcp,udp */);
 
-sockaddr sockaddr_from_string(std::string const &src, sa_family_t sin_family = AF_INET);
+sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family = AF_INET);
 
 std::string maybe_obfuscate_address_string(std::string_view address);
 

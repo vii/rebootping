@@ -4,13 +4,13 @@
 #include "now_unixtime.hpp"
 #include "str.hpp"
 
-#include <string_view>
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
-#include <numeric>
 #include <memory>
+#include <numeric>
 #include <ranges>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -120,7 +120,7 @@ struct flat_dirtree {
     timeshard_type &ensure_unixtime_to_timeshard(double unixtime) {
         return ensure_timeshard_name_to_timeshard(yyyymmdd(unixtime));
     }
-    timeshard_type const*timeshard_name_to_timeshard(std::string_view timeshard_name) const {
+    timeshard_type const *timeshard_name_to_timeshard(std::string_view timeshard_name) const {
         auto i = flat_name_to_timeshard.find(std::string(timeshard_name));
         if (i == flat_name_to_timeshard.end()) {
             return nullptr;
@@ -132,14 +132,14 @@ struct flat_dirtree {
         std::string name;
         try {
             name = yyyymmdd(unixtime);
-        } catch (const std::runtime_error&) {
+        } catch (const std::runtime_error &) {
             return nullptr;
         }
         return timeshard_name_to_timeshard(name);
     }
     template<typename add_function>
     timeshard_iterator_type add_flat_record(std::string_view timeshard_name, add_function &&f) {
-        auto& shard = ensure_timeshard_name_to_timeshard(timeshard_name);
+        auto &shard = ensure_timeshard_name_to_timeshard(timeshard_name);
 
         return add_flat_record(shard, std::forward<add_function>(f));
     }

@@ -47,17 +47,29 @@ std::ostream &operator<<(std::ostream &os, escape_json_tag<double> s) {
     }
 }
 
-std::string escape_html_string(std::string const& s) {
+std::string escape_html_string(std::string const &s) {
     std::string ret;
     ret.reserve(s.size());
-    for (auto c:s) {
+    for (auto c : s) {
         switch (c) {
-            case '"': ret += "&quot;"; break;
-            case '\'': ret += "&apos;"; break;
-            case '&': ret += "&amp;"; break;
-            case '<': ret += "&lt;"; break;
-            case '>': ret += "&gt;"; break;
-            default: ret += c; break;
+            case '"':
+                ret += "&quot;";
+                break;
+            case '\'':
+                ret += "&apos;";
+                break;
+            case '&':
+                ret += "&amp;";
+                break;
+            case '<':
+                ret += "&lt;";
+                break;
+            case '>':
+                ret += "&gt;";
+                break;
+            default:
+                ret += c;
+                break;
         }
     }
     return ret;

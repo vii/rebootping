@@ -1,8 +1,8 @@
 #include "rebootping_report_html.hpp"
+#include "env.hpp"
+#include "escape_json.hpp"
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
-#include "escape_json.hpp"
-#include "env.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -112,7 +112,7 @@ void report_html_dump(std::ostream &out) {
     for (auto &&[mac, addrs] : mac_to_addrs) {
         out << "<div class=monitored_mac>";
         out << "<h2><span class=mac>" << escape_html(maybe_obfuscate_address(mac)) << "</span> "
-        << "<span class=oui_manufacturer_name>" << escape_html(oui_manufacturer_name(mac)) << "</span>";
+            << "<span class=oui_manufacturer_name>" << escape_html(oui_manufacturer_name(mac)) << "</span>";
 
         network_addr best_addr = 0;
         for (auto &&addr : addrs) {
@@ -150,7 +150,7 @@ void report_html_dump(std::ostream &out) {
         // TODO sort these counts
         // TODO clean up duplicate code collecting counts and then printing them
         // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
-        std::unordered_map<network_addr , uint64_t > connect_counts;
+        std::unordered_map<network_addr, uint64_t> connect_counts;
         for (auto &&connects : write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
             for (auto &&[a, c] : connects.ip_contact_addrs().known_keys_and_counts()) {
                 connect_counts[a] += c;

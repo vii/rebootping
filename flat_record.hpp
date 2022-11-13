@@ -5,7 +5,7 @@
 
 template<typename function, typename holder>
 inline decltype(auto) flat_record_apply_per_field(function &&f, holder &&record) {
-    return std::apply([&](auto &&... field) {
+    return std::apply([&](auto &&...field) {
         (f(field, record), ...);
     },
                       typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
@@ -26,10 +26,10 @@ inline void flat_record_dump_as_json(std::ostream &os, holder &&record) {
     os << "}";
 }
 template<typename holder>
-inline void flat_record_schema_as_json(std::ostream&os) {
-    os <<"{\"flat_fields\": {";
+inline void flat_record_schema_as_json(std::ostream &os) {
+    os << "{\"flat_fields\": {";
     bool first = true;
-    auto dump_field = [&](auto&&schema) {
+    auto dump_field = [&](auto &&schema) {
         if (!first) {
             os << ", ";
         }
@@ -39,11 +39,11 @@ inline void flat_record_schema_as_json(std::ostream&os) {
         os << "\"flat_field_type_string\": " << escape_json(schema.flat_field_type_string());
         os << "}";
     };
-    std::apply([&](auto &&... field) {
+    std::apply([&](auto &&...field) {
         (dump_field(field), ...);
     },
                typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
-    os<<"}}";
+    os << "}}";
 }
 template<typename holder>
 inline std::string flat_record_schema_as_json() {
@@ -64,7 +64,7 @@ inline std::string flat_record_schema_as_json() {
 #define flat_timeshard_field_schema_declaration(kind, name)                              \
     struct name : flat_timeshard_field_schema<kind> {                                    \
         constexpr char const *flat_field_name() { return #name; }                        \
-        constexpr char const *flat_field_type_string() { return #kind; }                           \
+        constexpr char const *flat_field_type_string() { return #kind; }                 \
         template<typename holder_type>                                                   \
         decltype(auto) flat_field_value(holder_type &&holder) { return holder.name(); }; \
     };
@@ -110,9 +110,8 @@ inline std::string flat_record_schema_as_json() {
         evaluate_for_each(flat_timeshard_field_declaration, __VA_ARGS__)                                                                                                                       \
                                                                                                                                                                                                \
                                                                                                                                                                                                \
-        flat_timeshard_##record_name& flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                                             \
-            evaluate_for_each(flat_timeshard_ensure_field_mmapped_statement, __VA_ARGS__)                                                                                                      \
-            return *this;\
+                flat_timeshard_##record_name &flat_timeshard_ensure_mmapped(uint64_t len) {                                                                                                    \
+            evaluate_for_each(flat_timeshard_ensure_field_mmapped_statement, __VA_ARGS__) return *this;                                                                                        \
         }                                                                                                                                                                                      \
                                                                                                                                                                                                \
         inline flat_timeshard_##record_name(std::string_view timeshard_name, std::string const &dir, flat_mmap_settings const &settings)                                                       \

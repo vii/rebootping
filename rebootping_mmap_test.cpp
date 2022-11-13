@@ -112,7 +112,7 @@ int64_t simple_hash(std::string_view s) {
 
 template<typename field_type>
 decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view field_name) {
-    return (field_type)(row_num ^ simple_hash(field_name));
+    return (field_type) (row_num ^ simple_hash(field_name));
 }
 
 template<>
@@ -178,7 +178,7 @@ void test_flat_read_write(
 }
 
 TEST(flat_records, just_json_schema) {
-    rebootping_test_check(flat_record_schema_as_json<all_kinds_records>(),==,R"({"flat_fields": {"i8": {"flat_field_size_bytes": 1, "flat_field_type_string": "int8_t"}, "i16": {"flat_field_size_bytes": 2, "flat_field_type_string": "int16_t"}, "i32": {"flat_field_size_bytes": 4, "flat_field_type_string": "int32_t"}, "i64": {"flat_field_size_bytes": 8, "flat_field_type_string": "int64_t"}, "u8": {"flat_field_size_bytes": 1, "flat_field_type_string": "uint8_t"}, "u16": {"flat_field_size_bytes": 2, "flat_field_type_string": "uint16_t"}, "u32": {"flat_field_size_bytes": 4, "flat_field_type_string": "uint32_t"}, "u64": {"flat_field_size_bytes": 8, "flat_field_type_string": "uint64_t"}, "f": {"flat_field_size_bytes": 4, "flat_field_type_string": "float"}, "d": {"flat_field_size_bytes": 8, "flat_field_type_string": "double"}, "s": {"flat_field_size_bytes": 16, "flat_field_type_string": "std::string_view"}}})");
+    rebootping_test_check(flat_record_schema_as_json<all_kinds_records>(), ==, R"({"flat_fields": {"i8": {"flat_field_size_bytes": 1, "flat_field_type_string": "int8_t"}, "i16": {"flat_field_size_bytes": 2, "flat_field_type_string": "int16_t"}, "i32": {"flat_field_size_bytes": 4, "flat_field_type_string": "int32_t"}, "i64": {"flat_field_size_bytes": 8, "flat_field_type_string": "int64_t"}, "u8": {"flat_field_size_bytes": 1, "flat_field_type_string": "uint8_t"}, "u16": {"flat_field_size_bytes": 2, "flat_field_type_string": "uint16_t"}, "u32": {"flat_field_size_bytes": 4, "flat_field_type_string": "uint32_t"}, "u64": {"flat_field_size_bytes": 8, "flat_field_type_string": "uint64_t"}, "f": {"flat_field_size_bytes": 4, "flat_field_type_string": "float"}, "d": {"flat_field_size_bytes": 8, "flat_field_type_string": "double"}, "s": {"flat_field_size_bytes": 16, "flat_field_type_string": "std::string_view"}}})");
 }
 
 TEST(flat_records, check_serialisation) {
