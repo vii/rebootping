@@ -10,9 +10,9 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     strategy:
-	matrix:
-	  build_type: [Release, Debug]
-	  cxx_compiler: [g++, clang++]
+        matrix:
+          build_type: [Release, Debug]
+          cxx_compiler: [g++, clang++]
     
     steps:
       - name: Ubuntu apt install deps
@@ -31,3 +31,6 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: ctest -C ${{matrix.build_type}}
       
+      - name: Test rerun
+        working-directory: ${{github.workspace}}/build
+        run: ctest -C ${{matrix.build_type}} --rerun-failed --output-on-failure
