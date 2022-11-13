@@ -4,9 +4,12 @@
 #include "now_unixtime.hpp"
 #include "str.hpp"
 
+#include <string_view>
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <numeric>
+#include <memory>
 #include <ranges>
 #include <unordered_map>
 #include <vector>

@@ -9,6 +9,7 @@
 #include <functional>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 std::vector<std::pair<std::string, std::function<void()>>> &rebootping_tests();
