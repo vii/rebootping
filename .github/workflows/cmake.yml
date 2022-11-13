@@ -12,11 +12,12 @@ jobs:
     strategy:
         matrix:
           build_type: [Release, Debug]
-          cxx_compiler: [g++, clang++]
+	  # clang++ works with version 15 which is not available on 22.04 yet
+          cxx_compiler: [g++]
     
     steps:
       - name: Ubuntu apt install deps
-        run: sudo apt-get install -qy libpcap-dev build-essential cmake gcc g++ clang
+        run: sudo apt-get install -qy libpcap-dev build-essential cmake gcc g++ # clang
 
       - name: Checkout source code
         uses: actions/checkout@v2
