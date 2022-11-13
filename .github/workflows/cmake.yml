@@ -12,7 +12,7 @@ jobs:
     strategy:
         matrix:
           build_type: [Release, Debug]
-	  # clang++ works with version 15 which is not available on 22.04 yet
+          # clang++ works with version 15 which is not available on 22.04 yet
           cxx_compiler: [g++]
     
     steps:
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v2
 
-      - name: Configure CMake
+      - name: Configure CMake for ${{matrix.cxx_compiler}}
         run: CXX=${{matrix.cxx_compiler}} cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
 
       - name: Build
