@@ -1,4 +1,5 @@
 #include "ping_record_store.hpp"
+
 #include "flat_metrics.hpp"
 #include "network_flat_records.hpp"
 #include "rebootping_records_dir.hpp"
@@ -6,14 +7,14 @@
 #include <mutex>
 
 namespace {
-    uint64_t uint64_random() {
-        static std::random_device random_device;
-        static std::mt19937_64 random_engine{random_device()};
-        static std::uniform_int_distribution<uint64_t> distro{std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max()};
-        return distro(random_engine);
-    }
+uint64_t uint64_random() {
+    static std::random_device random_device;
+    static std::mt19937_64 random_engine{random_device()};
+    static std::uniform_int_distribution<uint64_t> distro{std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max()};
+    return distro(random_engine);
+}
 
-}// namespace
+} // namespace
 
 void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_addr, std::string_view ping_if, rebootping_icmp_payload &ping_payload) {
     ping_payload.ping_cookie = uint64_random();
@@ -40,18 +41,12 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
 }
 
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes) {
-    auto packet = rebootping_ping_ether_packet::header_from_packet(bytes, h->caplen);
-    if (!packet) {
-        return;
-    }
-    if (ntohs(packet->ether_type_or_len) != (uint16_t) ether_type::IPv4) {
-        return;
-    }
-    if (packet->ip_p != (uint8_t) ip_protocol::ICMP) {
-        return;
-    }
+    const auto *packet = rebootping_ping_ether_packet::header_from_packet(bytes, h->caplen);
+    if (!packet) { return; }
+    if (ntohs(packet->ether_type_or_len) != (uint16_t)ether_type::IPv4) { return; }
+    if (packet->ip_p != (uint8_t)ip_protocol::ICMP) { return; }
 
-    auto &ping_payload = *packet;
+    const auto &ping_payload = *packet;
     ++flat_metric().ping_record_store_process_packet_packets;
     auto lock = write_locked_reference(ping_record_store());
     auto *timeshard = lock->unixtime_to_timeshard(ping_payload.ping_start_unixtime);
@@ -70,16 +65,15 @@ void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, cons
     }
 
     switch (packet->icmp_type) {
-        case (uint8_t) icmp_type::ECHO:
-            record.ping_sent_seconds() = now_unixtime() - record.ping_start_unixtime();
-            ++flat_metric().ping_record_store_process_packet_icmp_echo;
-            break;
-        case (uint8_t) icmp_type::ECHOREPLY:
-            record.ping_recv_seconds() = now_unixtime() - record.ping_start_unixtime();
-            ++flat_metric().ping_record_store_process_packet_icmp_echoreply;
-            break;
-        default:
-            break;
+    case (uint8_t)icmp_type::ECHO:
+        record.ping_sent_seconds() = now_unixtime() - record.ping_start_unixtime();
+        ++flat_metric().ping_record_store_process_packet_icmp_echo;
+        break;
+    case (uint8_t)icmp_type::ECHOREPLY:
+        record.ping_recv_seconds() = now_unixtime() - record.ping_start_unixtime();
+        ++flat_metric().ping_record_store_process_packet_icmp_echoreply;
+        break;
+    default: break;
     }
 }
 

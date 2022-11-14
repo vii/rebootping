@@ -1,6 +1,7 @@
 #pragma once
 
 #include "str.hpp"
+
 #include <pcap/pcap.h>
 
 #include <atomic>
@@ -60,7 +61,7 @@ struct macaddr {
         return as_num;
     }
 
-    inline uint32_t mac_manufacturer() const { return (uint32_t) (as_number() >> 24); }
+    inline uint32_t mac_manufacturer() const { return (uint32_t)(as_number() >> 24); }
 
     auto inline operator==(macaddr const &other) const { return as_number() == other.as_number(); }
 
@@ -71,9 +72,7 @@ inline std::ostream &operator<<(std::ostream &os, macaddr const &m) {
     const char *hex_digits = "0123456789abcdef";
     bool first = true;
     for (auto c : m.mac_bytes) {
-        if (!first) {
-            os << ":";
-        }
+        if (!first) { os << ":"; }
         os << hex_digits[c / 16] << hex_digits[c % 16];
         first = false;
     }
@@ -81,11 +80,10 @@ inline std::ostream &operator<<(std::ostream &os, macaddr const &m) {
 }
 
 namespace std {
-    template<>
-    struct hash<macaddr> {
-        inline size_t operator()(macaddr const &ma) const { return std::hash<uint64_t>()(ma.as_number()); }
-    };
-}// namespace std
+template <> struct hash<macaddr> {
+    inline size_t operator()(macaddr const &ma) const { return std::hash<uint64_t>()(ma.as_number()); }
+};
+} // namespace std
 
 std::ostream &operator<<(std::ostream &os, in_addr const &i);
 
@@ -199,13 +197,9 @@ struct llc_stp_bpdu {
     // more fields skipped
 };
 
-template<typename... packet_types>
-struct wire_header : packet_types... {
-    template<typename pointer>
-    static wire_header<packet_types...> const *header_from_packet(pointer *bytes, size_t caplen) {
-        if (sizeof(wire_header<packet_types...>) > caplen) {
-            return nullptr;
-        }
+template <typename... packet_types> struct wire_header : packet_types... {
+    template <typename pointer> static wire_header<packet_types...> const *header_from_packet(pointer *bytes, size_t caplen) {
+        if (sizeof(wire_header<packet_types...>) > caplen) { return nullptr; }
         return reinterpret_cast<wire_header<packet_types...> const *>(bytes);
     }
 };
@@ -220,6 +214,5 @@ sockaddr sockaddr_from_string(const std::string &src, sa_family_t sin_family = A
 
 std::string maybe_obfuscate_address_string(std::string_view address);
 
-template<typename address_type>
-inline std::string maybe_obfuscate_address(address_type &&a) { return maybe_obfuscate_address_string(str(a)); }
+template <typename address_type> inline std::string maybe_obfuscate_address(address_type &&a) { return maybe_obfuscate_address_string(str(a)); }
 inline double timeval_to_unixtime(timeval const &tv) { return tv.tv_sec + tv.tv_usec / 1e6; }

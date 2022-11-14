@@ -2,6 +2,7 @@
 
 #include "file_contents_cache.hpp"
 #include "limited_pcap_dumper.hpp"
+#include "loop_thread.hpp"
 #include "now_unixtime.hpp"
 #include "ping_record_store.hpp"
 #include "str.hpp"
@@ -9,7 +10,6 @@
 
 #include <pcap/pcap.h>
 
-#include "loop_thread.hpp"
 #include <atomic>
 #include <cmath>
 #include <csignal>

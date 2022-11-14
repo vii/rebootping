@@ -24,16 +24,12 @@ TEST(flat_index_field_suite, some_strings) {
         rebootping_test_check(13, ==, records.string_index("hello").begin()->thirteen());
         rebootping_test_check(26, ==, records.string_index("bye").begin()->thirteen());
 
-        for (int i = 0; 1067 * 1053 > i; ++i) {
-            records.string_index(str(i)).add_if_missing(unixtime).thirteen() = i;
-        }
+        for (int i = 0; 1067 * 1053 > i; ++i) { records.string_index(str(i)).add_if_missing(unixtime).thirteen() = i; }
 
         rebootping_test_check(13, ==, records.string_index("hello").begin()->thirteen());
         rebootping_test_check(26, ==, records.string_index("bye").begin()->thirteen());
 
-        for (int i = 0; 1067 * 1053 > i; ++i) {
-            rebootping_test_check(records.string_index(str(i)).begin()->thirteen(), ==, i);
-        }
+        for (int i = 0; 1067 * 1053 > i; ++i) { rebootping_test_check(records.string_index(str(i)).begin()->thirteen(), ==, i); }
     }
     {
         string_index_record records(tmpdir.tmpdir_name);
@@ -41,14 +37,10 @@ TEST(flat_index_field_suite, some_strings) {
         rebootping_test_check(13, ==, records.string_index("hello").begin()->thirteen());
         rebootping_test_check(26, ==, records.string_index("bye").begin()->thirteen());
 
-        for (int i = 0; 1067 * 1053 > i; ++i) {
-            rebootping_test_check(records.string_index(str(i)).begin()->thirteen(), ==, i);
-        }
+        for (int i = 0; 1067 * 1053 > i; ++i) { rebootping_test_check(records.string_index(str(i)).begin()->thirteen(), ==, i); }
 
         auto all_strings = records.string_index();
-        for (int i = 0; 1067 * 1053 > i; ++i) {
-            rebootping_test_check(all_strings[str(i)].thirteen(), ==, i);
-        }
+        for (int i = 0; 1067 * 1053 > i; ++i) { rebootping_test_check(all_strings[str(i)].thirteen(), ==, i); }
     }
 
     // options
@@ -69,7 +61,7 @@ TEST(flat_index_field_suite, just_ints) {
     int_index_record records(tmpdir.tmpdir_name);
     const double unixtime = 1;
     const int max_i = 1017 * 1013;
-    auto index_lookup = [](int i) { return ~((uint32_t) i) * 0xdeadbeef; };
+    auto index_lookup = [](int i) { return ~((uint32_t)i) * 0xdeadbeef; };
 
     for (int i = 0; max_i > i; ++i) {
         auto r = records.uint32_index(index_lookup(i)).add_if_missing(unixtime);
@@ -81,7 +73,7 @@ TEST(flat_index_field_suite, just_ints) {
     for (int i = 0; max_i > i; ++i) {
         auto r = *records.uint32_index(index_lookup(i)).begin();
         rebootping_test_check(r.thirteen(), ==, i * 13);
-        rebootping_test_check(r.seven(), ==, (uint8_t) (i * 7));
+        rebootping_test_check(r.seven(), ==, (uint8_t)(i * 7));
 
         auto again = *records.uint64_index(index_lookup(i)).begin();
         rebootping_test_check(r, ==, again);

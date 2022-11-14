@@ -17,9 +17,7 @@ bool file_contents_cache_write(std::string const &filename, std::string const &c
         current << i.rdbuf();
         file_contents[filename] = current.str();
     }
-    if (contents == file_contents[filename]) {
-        return false;
-    }
+    if (contents == file_contents[filename]) { return false; }
     auto tmpfilename = filename + ".tmp";
     {
         std::ofstream o{tmpfilename, std::ios::out | std::ios::binary};

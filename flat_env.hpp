@@ -2,9 +2,9 @@
 
 #include "env.hpp"
 
-#define define_flat_env(name, default_value)                                                            \
-    namespace flat_env {                                                                                \
-        inline auto name() -> decltype(env(#name, default_value)) { return env(#name, default_value); } \
+#define define_flat_env(name, default_value)                                                                                                                   \
+    namespace flat_env {                                                                                                                                       \
+    inline auto name() -> decltype(env(#name, default_value)) { return env(#name, default_value); }                                                            \
     }
 
 define_flat_env(oui_database_filename, "/var/lib/ieee-data/oui.txt");

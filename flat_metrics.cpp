@@ -1,4 +1,5 @@
 #include "flat_metrics.hpp"
+
 #include "rebootping_records_dir.hpp"
 
 flat_metrics_struct &flat_metric() {
@@ -9,8 +10,6 @@ flat_metrics_struct &flat_metric() {
 void flat_metrics_report_delta(std::ostream &os, flat_metrics_struct const &current, flat_metrics_struct const &previous) {
     flat_metrics_struct::flat_metrics_walk([&](std::string_view field_name, auto &&field_accessor) {
         auto field_delta = field_accessor(current) - field_accessor(previous);
-        if (field_delta) {
-            os << "flat_metrics_report_delta " << field_name << " " << field_delta << std::endl;
-        }
+        if (field_delta) { os << "flat_metrics_report_delta " << field_name << " " << field_delta << std::endl; }
     });
 }

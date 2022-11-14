@@ -1,3 +1,4 @@
+#include "flat_metrics.hpp"
 #include "network_interfaces_manager.hpp"
 #include "now_unixtime.hpp"
 #include "ping_health_decider.hpp"
@@ -5,7 +6,6 @@
 #include "rebootping_report_html.hpp"
 #include "str.hpp"
 
-#include "flat_metrics.hpp"
 #include <cmath>
 #include <csignal>
 #include <iostream>
@@ -17,8 +17,8 @@ int global_exit_value;
 void signal_callback_handler(int signum) { global_exit_value = signum; }
 
 int main() {
-    signal(SIGINT, signal_callback_handler);
-    signal(SIGTERM, signal_callback_handler);
+    CALL_ERRNO_BAD_VALUE(signal, SIG_ERR, SIGINT, signal_callback_handler);
+    CALL_ERRNO_BAD_VALUE(signal, SIG_ERR, SIGTERM, signal_callback_handler);
 
     network_interfaces_manager interfaces_manager;
     rebootping_event_log("rebootping_init");
@@ -34,9 +34,7 @@ int main() {
             break;
         }
         auto now = now_unixtime();
-        if (env("ping_heartbeat_external_addresses", true)) {
-            ping_external_addresses(known_ifs, now, last_heartbeat);
-        }
+        if (env("ping_heartbeat_external_addresses", true)) { ping_external_addresses(known_ifs, now, last_heartbeat); }
         if (now > last_dump_info_time + env("dump_info_spacing_seconds", 60.0)) {
             report_html_dump();
             last_dump_info_time = now;

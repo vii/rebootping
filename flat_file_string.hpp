@@ -1,11 +1,10 @@
 #pragma once
 
-#include <string_view>
-
 #include "flat_mmap.hpp"
 
-template<typename offset_type, typename length_type>
-struct flat_file_string {
+#include <string_view>
+
+template <typename offset_type, typename length_type> struct flat_file_string {
     offset_type string_offset;
 
     inline length_type string_len(flat_mmap const &map) const { return map.mmap_cast<length_type>(string_offset); }

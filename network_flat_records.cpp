@@ -1,4 +1,5 @@
 #include "network_flat_records.hpp"
+
 #include "rebootping_records_dir.hpp"
 
 locked_reference<dns_response_record> &dns_response_record_store() {

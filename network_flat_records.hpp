@@ -11,9 +11,7 @@
 using network_addr = in_addr_t;
 
 inline network_addr network_addr_from_sockaddr(sockaddr const &sa) {
-    if (sa.sa_family != AF_INET) {
-        throw std::runtime_error(str("network_addr_from_sockaddr cannot handle family ", sa.sa_family));
-    }
+    if (sa.sa_family != AF_INET) { throw std::runtime_error(str("network_addr_from_sockaddr cannot handle family ", sa.sa_family)); }
     return reinterpret_cast<sockaddr_in const *>(&sa)->sin_addr.s_addr;
 }
 
@@ -36,15 +34,12 @@ struct macaddr_ip_lookup {
     bool operator==(macaddr_ip_lookup const &) const = default;
 };
 
-template<>
-inline uint64_t flat_hash_function(macaddr_ip_lookup const &k) {
+template <> inline uint64_t flat_hash_function(macaddr_ip_lookup const &k) {
     return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_macaddr.as_number());
 }
-template<>
-inline uint64_t flat_hash_function(macaddr const &k) { return flat_hash_function(k.as_number()); }
+template <> inline uint64_t flat_hash_function(macaddr const &k) { return flat_hash_function(k.as_number()); }
 
-template<typename addr>
-struct if_addr_lookup {
+template <typename addr> struct if_addr_lookup {
     flat_bytes_interned_tag lookup_if = flat_bytes_interned_tag{0};
     addr lookup_addr;
 
@@ -53,8 +48,7 @@ struct if_addr_lookup {
     }
 };
 
-template<typename addr>
-struct if_addr_lookup_view {
+template <typename addr> struct if_addr_lookup_view {
     flat_bytes_const_interned_ptr lookup_if;
     addr lookup_addr;
 
@@ -62,18 +56,15 @@ struct if_addr_lookup_view {
     inline bool operator==(if_addr_lookup_view<addr> const &other) const { return lookup_if == other.lookup_if && lookup_addr == other.lookup_addr; }
 };
 
-template<typename addr>
-inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, if_addr_lookup<addr> const &k) {
+template <typename addr> inline decltype(auto) flat_timeshard_field_key_rehydrate(flat_timeshard_field_comparer &comparer, if_addr_lookup<addr> const &k) {
     return if_addr_lookup_view<addr>{flat_bytes_const_interned_ptr{comparer.comparer_timeshard, k.lookup_if}, k.lookup_addr};
 }
 
-template<typename addr>
-inline uint64_t flat_hash_function(if_addr_lookup<addr> const &k) {
+template <typename addr> inline uint64_t flat_hash_function(if_addr_lookup<addr> const &k) {
     return flat_hash_function(k.lookup_addr) ^ flat_hash_function(k.lookup_if.bytes_offset);
 }
 
-template<typename addr>
-decltype(auto) flat_timeshard_field_compare_prepare_key(if_addr_lookup<addr> *) {
+template <typename addr> decltype(auto) flat_timeshard_field_compare_prepare_key(if_addr_lookup<addr> *) {
     return [](flat_timeshard &comparer_timeshard, auto &&input) {
         if constexpr (std::is_constructible_v<if_addr_lookup<addr>, decltype(input)>) {
             return input;
@@ -82,22 +73,19 @@ decltype(auto) flat_timeshard_field_compare_prepare_key(if_addr_lookup<addr> *) 
         }
     };
 }
-template<typename addr>
-decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(if_addr_lookup<addr> *) {
+template <typename addr> decltype(auto) flat_timeshard_field_compare_prepare_key_maybe(if_addr_lookup<addr> *) {
     return [](flat_timeshard &comparer_timeshard, auto &&input) -> std::optional<if_addr_lookup<addr>> {
         if constexpr (std::is_constructible_v<if_addr_lookup<addr>, decltype(input)>) {
             return input;
         } else {
             auto s = comparer_timeshard.timeshard_lookup_interned_string(input.first);
-            if (!s) {
-                return std::nullopt;
-            }
+            if (!s) { return std::nullopt; }
             return if_addr_lookup<addr>{s.value(), input.second};
         }
     };
 }
 
-template<typename addr>
+template <typename addr>
 inline bool flat_hash_compare(flat_timeshard_field_comparer const &comparer, if_addr_lookup<addr> const &lhs, if_addr_lookup<addr> const &rhs) {
     return flat_hash_compare(comparer, lhs.lookup_if, rhs.lookup_if) && flat_hash_compare(comparer, lhs.lookup_addr, rhs.lookup_addr);
 }
@@ -105,16 +93,14 @@ using if_ip_lookup = if_addr_lookup<network_addr>;
 using if_mac_lookup = if_addr_lookup<macaddr>;
 
 namespace std {
-    template<>
-    struct hash<if_addr_lookup_view<network_addr>> {
-        inline size_t operator()(if_addr_lookup_view<network_addr> const &a) const { return a.if_addr_lookup_hash(); }
-    };
+template <> struct hash<if_addr_lookup_view<network_addr>> {
+    inline size_t operator()(if_addr_lookup_view<network_addr> const &a) const { return a.if_addr_lookup_hash(); }
+};
 
-    template<>
-    struct hash<if_addr_lookup_view<macaddr>> {
-        inline size_t operator()(if_addr_lookup_view<macaddr> const &a) const { return a.if_addr_lookup_hash(); }
-    };
-}// namespace std
+template <> struct hash<if_addr_lookup_view<macaddr>> {
+    inline size_t operator()(if_addr_lookup_view<macaddr> const &a) const { return a.if_addr_lookup_hash(); }
+};
+} // namespace std
 
 define_flat_record(dns_response_record, (double, dns_response_unixtime), (std::string_view, dns_response_hostname), (network_addr, dns_response_addr),
                    (flat_index_linked_field<macaddr_ip_lookup>, dns_macaddr_lookup_index));

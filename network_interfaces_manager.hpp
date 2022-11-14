@@ -7,12 +7,14 @@
 #include "network_interfaces_manager.hpp"
 #include "now_unixtime.hpp"
 #include "str.hpp"
+
+#include <pcap/pcap.h>
+
 #include <atomic>
 #include <cmath>
 #include <csignal>
 #include <cstring>
 #include <iostream>
-#include <pcap/pcap.h>
 #include <random>
 #include <thread>
 #include <unistd.h>

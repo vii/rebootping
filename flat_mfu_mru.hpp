@@ -4,8 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-template<typename key_type, uint64_t mfu, uint64_t mru>
-struct flat_mfu_mru {
+template <typename key_type, uint64_t mfu, uint64_t mru> struct flat_mfu_mru {
     std::array<key_type, mfu> flat_mfu_keys = {};
     std::array<uint64_t, mfu> flat_mfu_counts = {};
     std::array<key_type, mru> flat_mru_keys = {};
@@ -31,9 +30,7 @@ struct flat_mfu_mru {
             return;
         }
 
-        if (!mru) {
-            return;
-        }
+        if (!mru) { return; }
 
         if (flat_mru_keys[mru_pointer] == key) {
             ++flat_mru_counts[mru_pointer];
@@ -59,14 +56,10 @@ struct flat_mfu_mru {
     std::unordered_map<key_type, uint64_t> known_keys_and_counts() const {
         std::unordered_map<key_type, uint64_t> ret;
         for (uint64_t n = 0; mfu > n; ++n) {
-            if (flat_mfu_counts[n]) {
-                ret[flat_mfu_keys[n]] = flat_mfu_counts[n];
-            }
+            if (flat_mfu_counts[n]) { ret[flat_mfu_keys[n]] = flat_mfu_counts[n]; }
         }
         for (uint64_t n = 0; mru > n; ++n) {
-            if (flat_mru_counts[n]) {
-                ret[flat_mru_keys[n]] = flat_mru_counts[n];
-            }
+            if (flat_mru_counts[n]) { ret[flat_mru_keys[n]] = flat_mru_counts[n]; }
         }
         return ret;
     }

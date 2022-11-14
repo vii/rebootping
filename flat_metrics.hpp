@@ -1,6 +1,7 @@
 #pragma once
 
 #include "flat_record.hpp"
+
 #include <cstdint>
 
 struct flat_metric_counter {
@@ -16,14 +17,14 @@ struct flat_metric_counter {
 #define flat_metrics_field_definition(kind, name) kind name;
 
 #define flat_metrics_walk_definition(kind, name) f(#name, [](auto &&s) { return s.name; });
-#define define_flat_metrics(metrics_name, ...)                           \
-    struct metrics_name {                                                \
-        evaluate_for_each(flat_metrics_field_definition, __VA_ARGS__)    \
-                                                                         \
-                template<typename func>                                  \
-                static void flat_metrics_walk(func &&f) {                \
-            evaluate_for_each(flat_metrics_walk_definition, __VA_ARGS__) \
-        }                                                                \
+#define define_flat_metrics(metrics_name, ...)                                                                                                                 \
+    struct metrics_name {                                                                                                                                      \
+        evaluate_for_each(flat_metrics_field_definition, __VA_ARGS__)                                                                                          \
+                                                                                                                                                               \
+            template <typename func>                                                                                                                           \
+            static void flat_metrics_walk(func &&f) {                                                                                                          \
+            evaluate_for_each(flat_metrics_walk_definition, __VA_ARGS__)                                                                                       \
+        }                                                                                                                                                      \
     };
 
 define_flat_metrics(flat_metrics_struct, (flat_metric_counter, metric_restarts),

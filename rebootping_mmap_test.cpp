@@ -10,8 +10,7 @@
 #include <string>
 #include <vector>
 
-template<typename records_type>
-std::string serialise_all_records_as_json(records_type &records) {
+template <typename records_type> std::string serialise_all_records_as_json(records_type &records) {
     std::ostringstream oss;
     for (auto record : records.timeshard_query()) {
         flat_record_dump_as_json(oss, record);
@@ -38,19 +37,13 @@ TEST(flat_hash_suite, hash_ints) {
         auto filename = tmpdir.tmpdir_name + "/hash_ints_test.flatmap";
         auto hash = flat_hash<uint64_t, uint64_t>(filename);
         for (unsigned n = 0; count > n; ++n) {
-            if (hash.hash_find_key(n)) {
-                rebootping_test_fail("hash_find_key", n);
-            }
+            if (hash.hash_find_key(n)) { rebootping_test_fail("hash_find_key", n); }
         }
 
         auto h = [](unsigned n) { return ~n * 17 + n * -13; };
 
-        for (unsigned n = 0; count > n; ++n) {
-            hash.hash_add_key(n) = h(n);
-        }
-        for (unsigned n = 0; count > n; ++n) {
-            assert(*hash.hash_find_key(n) == h(n));
-        }
+        for (unsigned n = 0; count > n; ++n) { hash.hash_add_key(n) = h(n); }
+        for (unsigned n = 0; count > n; ++n) { assert(*hash.hash_find_key(n) == h(n)); }
         assert(!hash.hash_find_key(count));
 
         auto reopen = flat_hash<uint64_t, uint64_t>(filename);
@@ -87,13 +80,11 @@ int64_t simple_hash(std::string_view s) {
     return ret;
 }
 
-template<typename field_type>
-decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view field_name) {
-    return (field_type) (row_num ^ simple_hash(field_name));
+template <typename field_type> decltype(auto) row_generator_all_kinds_value(uint64_t row_num, std::string_view field_name) {
+    return (field_type)(row_num ^ simple_hash(field_name));
 }
 
-template<>
-decltype(auto) row_generator_all_kinds_value<flat_bytes_field_ptr>(uint64_t row_num, std::string_view field_name) {
+template <> decltype(auto) row_generator_all_kinds_value<flat_bytes_field_ptr>(uint64_t row_num, std::string_view field_name) {
     return str(field_name, row_num);
 }
 
@@ -102,16 +93,17 @@ auto row_generator_all_kinds_records = [](uint64_t row_num, auto &&field, auto &
     return row_generator_all_kinds_value<field_type>(row_num, field.flat_field_name());
 };
 
-template<typename record_type, typename row_generator>
+template <typename record_type, typename row_generator>
 void test_flat_read_write(
-        std::string_view test_name, row_generator &&rg, uint64_t row_count,
-        std::function<std::string(uint64_t)> shard_name = [](uint64_t row_num) { return "20210107"; }) {
+    std::string_view test_name, row_generator &&rg, uint64_t row_count,
+    std::function<std::string(uint64_t)> shard_name = [](uint64_t row_num) { return "20210107"; }) {
     tmpdir tmpdir;
     record_type test_records{tmpdir.tmpdir_name};
 
     for (uint64_t row_num = 0; row_count > row_num; ++row_num) {
         test_records.add_flat_record(shard_name(row_num), [&](auto &&i) {
-            flat_record_apply_per_field([&](auto &&field, auto &&record) { field.flat_field_value(record) = rg(row_num, field, field.flat_field_value(record)); }, i);
+            flat_record_apply_per_field(
+                [&](auto &&field, auto &&record) { field.flat_field_value(record) = rg(row_num, field, field.flat_field_value(record)); }, i);
         });
     }
 
@@ -120,18 +112,18 @@ void test_flat_read_write(
     std::unordered_map<std::string, uint64_t> correct_field;
     for (auto record : test_records.timeshard_query()) {
         flat_record_apply_per_field(
-                [&](auto &&field, auto &&record) {
-                    auto actual_value = field.flat_field_value(record);
-                    auto proper_value = rg(row_num, field, field.flat_field_value(record));
-                    if (proper_value != actual_value) {
-                        std::cerr << "test_flat_read_write " << test_name << " row " << row_num << " field " << field.flat_field_name() << " is set to " << actual_value
-                                  << " but need " << proper_value << std::endl;
-                        ++incorrect;
-                    } else {
-                        ++correct_field[field.flat_field_name()];
-                    }
-                },
-                record);
+            [&](auto &&field, auto &&record) {
+                auto actual_value = field.flat_field_value(record);
+                auto proper_value = rg(row_num, field, field.flat_field_value(record));
+                if (proper_value != actual_value) {
+                    std::cerr << "test_flat_read_write " << test_name << " row " << row_num << " field " << field.flat_field_name() << " is set to "
+                              << actual_value << " but need " << proper_value << std::endl;
+                    ++incorrect;
+                } else {
+                    ++correct_field[field.flat_field_name()];
+                }
+            },
+            record);
         ++row_num;
     }
 
@@ -148,14 +140,14 @@ void test_flat_read_write(
 
 TEST(flat_records, just_json_schema) {
     rebootping_test_check(
-            flat_record_schema_as_json<all_kinds_records>(), ==,
-            R"({"flat_fields": {"i8": {"flat_field_size_bytes": 1, "flat_field_type_string": "int8_t"}, "i16": {"flat_field_size_bytes": 2, "flat_field_type_string": "int16_t"}, "i32": {"flat_field_size_bytes": 4, "flat_field_type_string": "int32_t"}, "i64": {"flat_field_size_bytes": 8, "flat_field_type_string": "int64_t"}, "u8": {"flat_field_size_bytes": 1, "flat_field_type_string": "uint8_t"}, "u16": {"flat_field_size_bytes": 2, "flat_field_type_string": "uint16_t"}, "u32": {"flat_field_size_bytes": 4, "flat_field_type_string": "uint32_t"}, "u64": {"flat_field_size_bytes": 8, "flat_field_type_string": "uint64_t"}, "f": {"flat_field_size_bytes": 4, "flat_field_type_string": "float"}, "d": {"flat_field_size_bytes": 8, "flat_field_type_string": "double"}, "s": {"flat_field_size_bytes": 16, "flat_field_type_string": "std::string_view"}}})");
+        flat_record_schema_as_json<all_kinds_records>(), ==,
+        R"({"flat_fields": {"i8": {"flat_field_size_bytes": 1, "flat_field_type_string": "int8_t"}, "i16": {"flat_field_size_bytes": 2, "flat_field_type_string": "int16_t"}, "i32": {"flat_field_size_bytes": 4, "flat_field_type_string": "int32_t"}, "i64": {"flat_field_size_bytes": 8, "flat_field_type_string": "int64_t"}, "u8": {"flat_field_size_bytes": 1, "flat_field_type_string": "uint8_t"}, "u16": {"flat_field_size_bytes": 2, "flat_field_type_string": "uint16_t"}, "u32": {"flat_field_size_bytes": 4, "flat_field_type_string": "uint32_t"}, "u64": {"flat_field_size_bytes": 8, "flat_field_type_string": "uint64_t"}, "f": {"flat_field_size_bytes": 4, "flat_field_type_string": "float"}, "d": {"flat_field_size_bytes": 8, "flat_field_type_string": "double"}, "s": {"flat_field_size_bytes": 16, "flat_field_type_string": "std::string_view"}}})");
 }
 
 TEST(flat_records, check_serialisation) {
     tmpdir tmpdir;
     char const *expected =
-            R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": 3327372177, "u64": "9223372053062609372", "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
+        R"({"i8": 65, "i16": -15581, "i32": 1527868653, "i64": "-9223372022431611104", "u8": 13, "u16": 60255, "u32": 3327372177, "u64": "9223372053062609372", "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s0"}
 {"i8": 64, "i16": -15582, "i32": 1527868652, "i64": "-9223372022431611103", "u8": 12, "u16": 60254, "u32": 3327372176, "u64": "9223372053062609373", "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s1"}
 {"i8": 67, "i16": -15583, "i32": 1527868655, "i64": "-9223372022431611102", "u8": 15, "u16": 60253, "u32": 3327372179, "u64": "9223372053062609374", "f": 9.223372036854776e+18, "d": 9.223372036855788e+18, "s": "s2"}
 )";
@@ -166,10 +158,10 @@ TEST(flat_records, check_serialisation) {
         for (uint64_t row_num = 0; row_count > row_num; ++row_num) {
             test_records.add_flat_record("20200107", [&](auto &&i) {
                 flat_record_apply_per_field(
-                        [&](auto &&field, auto &&record) {
-                            field.flat_field_value(record) = row_generator_all_kinds_records(row_num, field, field.flat_field_value(record));
-                        },
-                        i);
+                    [&](auto &&field, auto &&record) {
+                        field.flat_field_value(record) = row_generator_all_kinds_records(row_num, field, field.flat_field_value(record));
+                    },
+                    i);
             });
         }
         auto after_write = serialise_all_records_as_json(test_records);
@@ -193,7 +185,8 @@ TEST(flat_records, reopen_versions) {
     std::string const timeshard_name = "20210120";
     test_records.add_flat_record(timeshard_name, [&](auto &&i) {
         flat_record_apply_per_field(
-                [&](auto &&field, auto &&record) { field.flat_field_value(record) = row_generator_all_kinds_records(0, field, field.flat_field_value(record)); }, i);
+            [&](auto &&field, auto &&record) { field.flat_field_value(record) = row_generator_all_kinds_records(0, field, field.flat_field_value(record)); },
+            i);
     });
     auto reopened = all_kinds_records{tmpdir.tmpdir_name};
     auto serialised = serialise_all_records_as_json(reopened);
@@ -227,53 +220,53 @@ TEST(flat_records, all_values) { test_flat_read_write<all_kinds_records>("all_va
 TEST(flat_records, some_strings) {
     for (uint64_t rows = 1; rows < 100 * 1024 * 1024; rows *= 7) {
         test_flat_read_write<strings_records>(
-                str("some_strings", rows),
-                [](uint64_t row_num, auto &&field, auto &&value) {
-                    return str("string_example", field.flat_field_name(), row_num
+            str("some_strings", rows),
+            [](uint64_t row_num, auto &&field, auto &&value) {
+                return str("string_example", field.flat_field_name(), row_num
 
-                    );
-                },
-                rows);
+                );
+            },
+            rows);
     }
 }
 
 TEST(flat_records, just_bytes) {
     for (uint64_t rows = 1; rows < 100 * 1024 * 1024; rows *= 8) {
         test_flat_read_write<just_one_byte_records>(
-                str("just_bytes", rows), [](uint64_t row_num, auto &&field, auto &&value) { return 61; }, rows);
+            str("just_bytes", rows), [](uint64_t row_num, auto &&field, auto &&value) { return 61; }, rows);
     }
 }
 
 TEST(flat_records, all_numbers) {
     for (uint64_t rows = 1; rows < 100 * 1024 * 1024; rows *= 2) {
         test_flat_read_write<all_numbers_records>(
-                str("row_number", rows),
-                [](uint64_t row_num, auto &&field, auto &&value) {
-                    using field_type = std::decay_t<decltype(value)>;
-                    return (field_type) row_num;
-                },
-                rows);
+            str("row_number", rows),
+            [](uint64_t row_num, auto &&field, auto &&value) {
+                using field_type = std::decay_t<decltype(value)>;
+                return (field_type)row_num;
+            },
+            rows);
         test_flat_read_write<all_numbers_records>(
-                str("row_number", rows + 1),
-                [](uint64_t row_num, auto &&field, auto &&value) {
-                    using field_type = std::decay_t<decltype(value)>;
-                    return (field_type) row_num;
-                },
-                rows + 1);
+            str("row_number", rows + 1),
+            [](uint64_t row_num, auto &&field, auto &&value) {
+                using field_type = std::decay_t<decltype(value)>;
+                return (field_type)row_num;
+            },
+            rows + 1);
     }
 
     test_flat_read_write<all_numbers_records>(
-            "numeric_limits_max",
-            [](uint64_t row_num, auto &&field, auto &&value) {
-                using field_type = std::decay_t<decltype(value)>;
-                return std::numeric_limits<field_type>::max();
-            },
-            919);
+        "numeric_limits_max",
+        [](uint64_t row_num, auto &&field, auto &&value) {
+            using field_type = std::decay_t<decltype(value)>;
+            return std::numeric_limits<field_type>::max();
+        },
+        919);
     test_flat_read_write<all_numbers_records>(
-            "numeric_limits_min",
-            [](uint64_t row_num, auto &&field, auto &&value) {
-                using field_type = std::decay_t<decltype(value)>;
-                return std::numeric_limits<field_type>::min();
-            },
-            2047);
+        "numeric_limits_min",
+        [](uint64_t row_num, auto &&field, auto &&value) {
+            using field_type = std::decay_t<decltype(value)>;
+            return std::numeric_limits<field_type>::min();
+        },
+        2047);
 }

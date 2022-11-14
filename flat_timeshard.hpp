@@ -29,17 +29,14 @@ struct flat_bytes_interned_tag {
 };
 static_assert(sizeof(flat_bytes_interned_tag) == sizeof(uint64_t));
 
-template<typename mmap_field, typename offset_type>
-struct flat_bytes_ptr {
+template <typename mmap_field, typename offset_type> struct flat_bytes_ptr {
     mmap_field &flat_field;
     offset_type flat_bytes_offset;
     using length_type = decltype(flat_field.smap_string_length(0));
 
     [[nodiscard]] inline operator std::string_view() const {
         auto offset = flat_bytes_offset.bytes_offset;
-        if (!offset) {
-            return {};
-        }
+        if (!offset) { return {}; }
 
         auto size = flat_field.smap_string_length(flat_bytes_offset.bytes_offset);
         return std::string_view(flat_field.smap_string_ptr(offset, size), size);
@@ -53,46 +50,38 @@ struct flat_bytes_ptr {
     }
 };
 
-template<>
-[[nodiscard]] inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) { return flat_hash_function(k.bytes_offset); }
+template <> [[nodiscard]] inline uint64_t flat_hash_function(flat_bytes_interned_tag const &k) { return flat_hash_function(k.bytes_offset); }
 
-#define flat_bytes_ptr_op(op)                                                                                                               \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(std::string_view other, flat_bytes_ptr<mmap, offset_type> const &rhs) {                               \
-        return other op(std::string_view) rhs;                                                                                              \
-    }                                                                                                                                       \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(std::string const &other, flat_bytes_ptr<mmap, offset_type> const &rhs) {                             \
-        return other op(std::string_view) rhs;                                                                                              \
-    }                                                                                                                                       \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(char const *other, flat_bytes_ptr<mmap, offset_type> const &rhs) {                                    \
-        return other op(std::string_view) rhs;                                                                                              \
-    }                                                                                                                                       \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, std::string_view other) {                               \
-        return (std::string_view) lhs op other;                                                                                             \
-    }                                                                                                                                       \
-    template<typename lhs_mmap, typename lhs_offset, typename rhs_mmap, typename rhs_offset>                                                \
-    inline decltype(auto) operator op(flat_bytes_ptr<lhs_mmap, lhs_offset> const &lhs, flat_bytes_ptr<rhs_mmap, rhs_offset> const &other) { \
-        return (std::string_view) lhs op(std::string_view) other;                                                                           \
-    }                                                                                                                                       \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, std::string const &other) {                             \
-        return (std::string_view) lhs op other;                                                                                             \
-    }                                                                                                                                       \
-    template<typename mmap, typename offset_type>                                                                                           \
-    inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, char const *other) {                                    \
-        return (std::string_view) lhs op other;                                                                                             \
+#define flat_bytes_ptr_op(op)                                                                                                                                  \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(std::string_view other, flat_bytes_ptr<mmap, offset_type> const &rhs) {   \
+        return other op(rhs.operator std::string_view());                                                                                                      \
+    }                                                                                                                                                          \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(std::string const &other, flat_bytes_ptr<mmap, offset_type> const &rhs) { \
+        return other op(rhs.operator std::string_view());                                                                                                      \
+    }                                                                                                                                                          \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(char const *other, flat_bytes_ptr<mmap, offset_type> const &rhs) {        \
+        return other op(rhs.operator std::string_view());                                                                                                      \
+    }                                                                                                                                                          \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, std::string_view other) {   \
+        return (lhs.operator std::string_view())op other;                                                                                                      \
+    }                                                                                                                                                          \
+    template <typename lhs_mmap, typename lhs_offset, typename rhs_mmap, typename rhs_offset>                                                                  \
+    inline decltype(auto) operator op(flat_bytes_ptr<lhs_mmap, lhs_offset> const &lhs, flat_bytes_ptr<rhs_mmap, rhs_offset> const &other) {                    \
+        return (lhs.operator std::string_view())op(other.operator std::string_view());                                                                         \
+    }                                                                                                                                                          \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, std::string const &other) { \
+        return (lhs.operator std::string_view())op other;                                                                                                      \
+    }                                                                                                                                                          \
+    template <typename mmap, typename offset_type> inline decltype(auto) operator op(flat_bytes_ptr<mmap, offset_type> const &lhs, char const *other) {        \
+        return (lhs.operator std::string_view())op other;                                                                                                      \
     }
 
 flat_bytes_ptr_op(<=>);
 flat_bytes_ptr_op(==);
 flat_bytes_ptr_op(!=);
 
-template<typename mmap, typename offset>
-inline std::ostream &operator<<(std::ostream &os, flat_bytes_ptr<mmap, offset> const &fbs) {
-    return os << (std::string_view) fbs;
+template <typename mmap, typename offset> inline std::ostream &operator<<(std::ostream &os, flat_bytes_ptr<mmap, offset> const &fbs) {
+    return os << (std::string_view)fbs;
 }
 
 struct flat_timeshard {
@@ -110,7 +99,8 @@ struct flat_timeshard {
         flat_timeshard_header highest_supported_version;
         flat_timeshard_header &lowest_supported_version = highest_supported_version;
         if (highest_supported_version.flat_timeshard_magic != timeshard_header_ref().flat_timeshard_magic) {
-            throw std::runtime_error(str("flat_timeshard_magic does not match in timeshard: dir ", dir, " magic ", timeshard_header_ref().flat_timeshard_magic));
+            throw std::runtime_error(
+                str("flat_timeshard_magic does not match in timeshard: dir ", dir, " magic ", timeshard_header_ref().flat_timeshard_magic));
         }
         if (timeshard_header_ref().flat_timeshard_version > highest_supported_version.flat_timeshard_version) {
             throw std::runtime_error(str("flat_timeshard_version too new: dir ", dir, " at ", timeshard_header_ref().flat_timeshard_version, ">",
@@ -143,7 +133,7 @@ struct flat_timeshard {
         interned_strings_base = &flat_timeshard_main_mmap.mmap_cast<char>(0);
         uint64_t offset = sizeof(flat_timeshard_header);
         while (offset < timeshard_header_ref().flat_timeshard_bytes_start_next) {
-            auto s = (std::string_view) flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}};
+            auto s = (std::string_view)flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}};
             interned_strings[s] = offset;
             offset += s.size() + 1 + sizeof(smap_string_length(offset));
         }
@@ -153,21 +143,15 @@ struct flat_timeshard {
     }
 
     std::optional<flat_bytes_interned_tag> timeshard_lookup_interned_string(std::string_view s) {
-        if (s.empty()) {
-            return flat_bytes_interned_tag{0};
-        }
+        if (s.empty()) { return flat_bytes_interned_tag{0}; }
         auto i = interned_strings.find(s);
-        if (i != interned_strings.end()) {
-            return flat_bytes_interned_tag{i->second};
-        }
+        if (i != interned_strings.end()) { return flat_bytes_interned_tag{i->second}; }
         return std::nullopt;
     }
 
     flat_bytes_interned_tag smap_store_string(std::string_view s) {
         auto already = timeshard_lookup_interned_string(s);
-        if (already.has_value()) {
-            return already.value();
-        }
+        if (already.has_value()) { return already.value(); }
 
         uint64_t alloc_bytes = s.size() + sizeof(smap_string_length(0)) + 1;
         auto offset = timeshard_allocate_bytes_prepare(alloc_bytes);
@@ -177,13 +161,13 @@ struct flat_timeshard {
         p[s.size()] = 0;
         timeshard_allocate_bytes_finish(alloc_bytes);
 
-        interned_strings[(std::string_view) flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}}] = offset;
+        interned_strings[(std::string_view)flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}}] = offset;
         return flat_bytes_interned_tag{offset};
     }
 
     inline uint64_t &smap_string_length(uint64_t offset) { return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset); }
 
-private:
+  private:
     uint64_t timeshard_allocate_bytes_prepare(uint64_t count) {
         auto cur = timeshard_header_ref().flat_timeshard_bytes_start_next;
         assert(cur >= sizeof(flat_timeshard_header));
@@ -191,30 +175,24 @@ private:
         auto new_start = cur + count;
         assert(new_start >= cur);
         flat_timeshard_main_mmap.mmap_allocate_at_least(new_start);
-        if (interned_strings_base != &flat_timeshard_main_mmap.mmap_cast<char>(0)) {
-            timeshard_reload_interned_strings();
-        }
+        if (interned_strings_base != &flat_timeshard_main_mmap.mmap_cast<char>(0)) { timeshard_reload_interned_strings(); }
         return cur;
     }
     void timeshard_allocate_bytes_finish(uint64_t count) { timeshard_header_ref().flat_timeshard_bytes_start_next += count; }
 };
 
-template<typename field_type>
-constexpr size_t flat_field_sizeof() { return sizeof(field_type); }
+template <typename field_type> constexpr size_t flat_field_sizeof() { return sizeof(field_type); }
 
-template<typename field_type>
-struct flat_timeshard_field_schema {
+template <typename field_type> struct flat_timeshard_field_schema {
     using field_value_type = field_type;
     constexpr size_t flat_field_size_bytes() const { return sizeof(field_type); }
 };
 
-template<typename... field_schemas>
-struct flat_timeshard_schema {
+template <typename... field_schemas> struct flat_timeshard_schema {
     std::tuple<field_schemas...> flat_schema_fields;
 };
 
-template<typename field_type>
-struct flat_timeshard_base_field {
+template <typename field_type> struct flat_timeshard_base_field {
     flat_timeshard &field_timeshard;
     flat_mmap field_mmap;
 
@@ -224,15 +202,13 @@ struct flat_timeshard_base_field {
     void flat_timeshard_ensure_field_mmapped(uint64_t index) { field_mmap.mmap_allocate_at_least((index + 1) * flat_field_sizeof<field_type>()); }
 };
 
-template<typename field_type>
-struct flat_timeshard_field : flat_timeshard_base_field<field_type> {
+template <typename field_type> struct flat_timeshard_field : flat_timeshard_base_field<field_type> {
     using flat_timeshard_base_field<field_type>::flat_timeshard_base_field;
     using flat_timeshard_base_field<field_type>::field_mmap;
     inline field_type &operator[](uint64_t index) const { return field_mmap.template mmap_cast<field_type>(index * sizeof(field_type)); }
 };
 
-template<typename timeshard_type>
-struct flat_timeshard_iterator {
+template <typename timeshard_type> struct flat_timeshard_iterator {
     timeshard_type *flat_iterator_timeshard;
     uint64_t flat_iterator_index;
 

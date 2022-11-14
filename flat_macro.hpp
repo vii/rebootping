@@ -26,9 +26,9 @@
 #define evaluate_for_each_brackets(f, ...) evaluate_macro_many(evaluate_for_each_brackets_inside(f, __VA_ARGS__))
 
 #define dbg_arg(arg) std::cout << " " << #arg << " = " << (arg);
-#define dbg(...)                                                          \
-    do {                                                                  \
-        std::cout << __FILE__ << ":" << __LINE__ << ": " << __FUNCTION__; \
-        evaluate_for_each_brackets(dbg_arg, __VA_ARGS__);                 \
-        std::cout << std::endl;                                           \
+#define dbg(...)                                                                                                                                               \
+    do {                                                                                                                                                       \
+        std::cout << __FILE__ << ":" << __LINE__ << ": " << __FUNCTION__;                                                                                      \
+        evaluate_for_each_brackets(dbg_arg, __VA_ARGS__);                                                                                                      \
+        std::cout << std::endl;                                                                                                                                \
     } while (0)

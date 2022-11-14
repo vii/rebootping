@@ -1,14 +1,15 @@
 #pragma once
 
 #include "call_errno.hpp"
-#include <string>
-#include <utility>
+
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include <cassert>
 #include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#include <string>
 #include <unistd.h>
+#include <utility>
 
 struct flat_mmap_settings {
     bool mmap_readonly = false;
@@ -21,7 +22,7 @@ class flat_mmap {
     flat_mmap_settings mmap_settings;
     uint64_t mmap_len;
 
-public:
+  public:
     explicit flat_mmap(std::string filename, flat_mmap_settings const &settings = flat_mmap_settings());
 
     flat_mmap(flat_mmap const &other) = delete;
@@ -32,12 +33,11 @@ public:
     void mmap_allocate_at_least(uint64_t len);
     void mmap_sparsely_allocate_at_least(uint64_t len);
 
-    std::string_view flat_mmap_filename() const { return mmap_filename; }
+    [[nodiscard]] std::string_view flat_mmap_filename() const { return mmap_filename; }
 
     [[nodiscard]] uint64_t mmap_allocated_len() const { return mmap_len; }
 
-    template<typename T>
-    inline T &mmap_cast(uint64_t off, uint64_t count = 1) const {
+    template <typename T> inline T &mmap_cast(uint64_t off, uint64_t count = 1) const {
         assert(off <= mmap_len);
         assert(off + sizeof(T) * count <= mmap_len);
         assert(off + sizeof(T) * count >= off);
@@ -47,7 +47,7 @@ public:
 
     inline ~flat_mmap() { destroy_mmap(); }
 
-private:
+  private:
     void open_mmap();
 
     void destroy_mmap();

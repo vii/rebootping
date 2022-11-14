@@ -42,8 +42,8 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
     const uint64_t record_unixtime = 1631768403;
     const auto addr_dns_com = network_addr_from_sockaddr(sockaddr_from_string("43.243.131.114"));
     const auto lookup = macaddr_ip_lookup{
-            .lookup_macaddr = {0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
-            .lookup_addr = addr_dns_com,
+        .lookup_macaddr = {0x02, 0x42, 0xac, 0x11, 0x00, 0x3},
+        .lookup_addr = addr_dns_com,
     };
 
     int first_record_count = 0;
@@ -53,19 +53,19 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
             std::cout << "dns_response_record_store record " << first_record_count << " ";
             flat_record_dump_as_json(std::cout, record);
             std::cout << std::endl;
-            rebootping_test_check((unsigned long) record.dns_response_unixtime(), ==, record_unixtime);
+            rebootping_test_check((unsigned long)record.dns_response_unixtime(), ==, record_unixtime);
             rebootping_test_check("dns.com.", ==, record.dns_response_hostname());
             rebootping_test_check("43.243.131.114", ==, str(in_addr{record.dns_response_addr()}));
             ++first_record_count;
         }
         rebootping_test_check(first_record_count, ==, 1);
 
-        auto timeshard = write_ref->unixtime_to_timeshard(record_unixtime);
+        const auto *timeshard = write_ref->unixtime_to_timeshard(record_unixtime);
         auto index = timeshard->dns_macaddr_lookup_index.flat_timeshard_index_lookup_key(lookup);
         rebootping_test_check(index, !=, nullptr);
         if (index) {
             auto lookup_record = timeshard->timeshard_iterator_at(*index - 1);
-            rebootping_test_check((unsigned long) lookup_record.dns_response_unixtime(), ==, record_unixtime);
+            rebootping_test_check((unsigned long)lookup_record.dns_response_unixtime(), ==, record_unixtime);
             rebootping_test_check("dns.com.", ==, lookup_record.dns_response_hostname());
             rebootping_test_check("43.243.131.114", ==, str(in_addr{lookup_record.dns_response_addr()}));
         }
@@ -77,7 +77,7 @@ TEST(network_interface_watcher_suite, dns_lookup_test) {
             auto write_ref = write_locked_reference(dns_response_record_store());
 
             for (auto i : write_ref->dns_macaddr_lookup_index(lookup)) {
-                rebootping_test_check((unsigned long) i.dns_response_unixtime(), ==, record_unixtime);
+                rebootping_test_check((unsigned long)i.dns_response_unixtime(), ==, record_unixtime);
                 rebootping_test_check("dns.com.", ==, i.dns_response_hostname());
                 rebootping_test_check("43.243.131.114", ==, str(in_addr{i.dns_response_addr()}));
                 ++record_count;

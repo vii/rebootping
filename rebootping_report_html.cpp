@@ -1,4 +1,5 @@
 #include "rebootping_report_html.hpp"
+
 #include "env.hpp"
 #include "escape_json.hpp"
 #include "ping_health_decider.hpp"
@@ -9,19 +10,13 @@
 
 namespace {
 
-    std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const &record) {
-        if (std::isnan(record.health_decision_unixtime())) {
-            return "Unknown";
-        }
-        if (record.health_last_good_unixtime() == record.health_decision_unixtime()) {
-            return "Good";
-        }
-        if (record.health_last_bad_unixtime() == record.health_decision_unixtime()) {
-            return "Bad";
-        }
-        return "Impossible";
-    }
-}// namespace
+std::string_view interface_health_record_status_string(flat_timeshard_iterator_interface_health_record const &record) {
+    if (std::isnan(record.health_decision_unixtime())) { return "Unknown"; }
+    if (record.health_last_good_unixtime() == record.health_decision_unixtime()) { return "Good"; }
+    if (record.health_last_bad_unixtime() == record.health_decision_unixtime()) { return "Bad"; }
+    return "Impossible";
+}
+} // namespace
 
 void report_html_dump(std::ostream &out) {
     out << std::setprecision(15) << R"(
@@ -82,9 +77,7 @@ void report_html_dump(std::ostream &out) {
 
         bool first_timeshard = true;
         for (auto &&shard : store->flat_timeshards) {
-            if (!first_timeshard) {
-                out << "\n, ";
-            }
+            if (!first_timeshard) { out << "\n, "; }
             first_timeshard = false;
             out << escape_json(shard->flat_timeshard_name);
         }
@@ -98,15 +91,11 @@ void report_html_dump(std::ostream &out) {
 
     for (auto &&[interface_mac, record] : read_locked_reference(arp_response_record_store())->arp_macaddr_index()) {
         mac_to_interfaces[interface_mac.lookup_addr].insert(std::string(interface_mac.lookup_if.operator std::string_view()));
-        for (auto &&[addr, count] : record.arp_addresses().known_keys_and_counts()) {
-            mac_to_addrs[interface_mac.lookup_addr].insert(addr);
-        }
+        for (auto &&[addr, count] : record.arp_addresses().known_keys_and_counts()) { mac_to_addrs[interface_mac.lookup_addr].insert(addr); }
     }
 
     std::unordered_map<macaddr, double> mac_to_last_stp;
-    for (auto &&stp : read_locked_reference(stp_record_store())->stp_source_macaddr_index()) {
-        mac_to_last_stp[stp.first] = stp.second.stp_unixtime();
-    }
+    for (auto &&stp : read_locked_reference(stp_record_store())->stp_source_macaddr_index()) { mac_to_last_stp[stp.first] = stp.second.stp_unixtime(); }
 
     for (auto &&[mac, addrs] : mac_to_addrs) {
         out << "<div class=monitored_mac>";
@@ -115,12 +104,10 @@ void report_html_dump(std::ostream &out) {
 
         network_addr best_addr = 0;
         for (auto &&addr : addrs) {
-            if (!best_addr) {
-                best_addr = addr;
-            }
+            if (!best_addr) { best_addr = addr; }
             char dns[1024];
             auto sa = sockaddr_from_network_addr(addr);
-            auto ret = getnameinfo((struct sockaddr *) &sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
+            auto ret = getnameinfo((struct sockaddr *)&sa, sizeof(sa), dns, sizeof(dns), 0, 0, 0);
             if (ret) {
                 out << " <span class=dns_error>" << escape_html(addr) << " " << escape_html(gai_strerror(ret)) << "</span>";
             } else {
@@ -139,9 +126,7 @@ void report_html_dump(std::ostream &out) {
         std::unordered_map<uint16_t, uint64_t> tcp_port_counts;
         // TODO allow const access to this kind of lookup so we can use a read lock
         for (auto &&accepts : write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac)) {
-            for (auto &&[p, c] : accepts.tcp_ports().known_keys_and_counts()) {
-                tcp_port_counts[p] += c;
-            }
+            for (auto &&[p, c] : accepts.tcp_ports().known_keys_and_counts()) { tcp_port_counts[p] += c; }
         }
         for (auto &&[p, c] : tcp_port_counts) {
             out << "<p class=tcp_port><a href=\"http://" << escape_html(best_addr) << ":" << p << "\">port " << p << "</a> count " << c << "</p>\n";
@@ -152,9 +137,7 @@ void report_html_dump(std::ostream &out) {
         // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
         std::unordered_map<network_addr, uint64_t> connect_counts;
         for (auto &&connects : write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
-            for (auto &&[a, c] : connects.ip_contact_addrs().known_keys_and_counts()) {
-                connect_counts[a] += c;
-            }
+            for (auto &&[a, c] : connects.ip_contact_addrs().known_keys_and_counts()) { connect_counts[a] += c; }
         }
         for (auto &&[a, c] : connect_counts) {
             std::string address;

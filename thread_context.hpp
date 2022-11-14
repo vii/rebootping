@@ -14,7 +14,7 @@ struct add_thread_context {
     }
     inline ~add_thread_context() { set_thread_context_value(thread_context_previous); }
 
-private:
+  private:
     inline void set_thread_context_value(std::string_view value) {
         if (value.empty()) {
             thread_context.erase(thread_context_key);
