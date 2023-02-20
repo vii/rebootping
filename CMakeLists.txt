@@ -55,3 +55,8 @@ add_executable(network_interface_watcher_test network_interface_watcher_test.cpp
 add_test(NAME network_interface_watcher_test_name COMMAND network_interface_watcher_test
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(network_interface_watcher_test rebootping_test_lib)
+
+add_executable(rebootping_main_test rebootping_main_test.cpp)
+add_test(NAME rebootping_main_test_name COMMAND rebootping_main_test)
+target_link_libraries(rebootping_main_test rebootping_test_lib)
+add_dependencies(rebootping_main_test rebootping)

@@ -82,8 +82,10 @@ struct network_interface_watcher {
             auto name = eat_qname();
             auto qtype = eat_short();
             auto qclass = eat_short();
-            auto ttl = (eat_short() << 16) + eat_short(); (void)ttl;
-            auto rdlength = eat_short(); (void)rdlength;
+            auto ttl = (eat_short() << 16) + eat_short();
+            (void)ttl;
+            auto rdlength = eat_short();
+            (void)rdlength;
             if (qclass != (int)dns_qclass::DNS_QCLASS_INET) { break; }
             switch (qtype) {
             case (int)dns_qtype::DNS_QTYPE_A: {

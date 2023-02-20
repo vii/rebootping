@@ -39,9 +39,7 @@ define_flat_metrics(flat_metrics_struct, (flat_metric_counter, metric_restarts),
                     (flat_metric_counter, network_interface_udp_packets),
 
                     (flat_metric_counter, network_interface_dns_packets), (flat_metric_counter, network_interface_dns_packets_overflow_decompression),
-                    (flat_metric_counter, network_interface_dns_packets_qtype_a),
-
-);
+                    (flat_metric_counter, network_interface_dns_packets_qtype_a), (uint64_t, open_files_limit), );
 
 define_flat_record(flat_metrics_record, (flat_metrics_struct, flat_metrics_value), );
 
