@@ -44,20 +44,24 @@ struct network_interface_watcher {
         auto eat_qname = [&]() {
             std::ostringstream oss;
             const u_char *saved_ptr = nullptr;
-            while (auto len = eat_one()) {
+            const int max_depth = env("network_interface_dns_packets_overflow_max_depth", 16);
+            int depth = 0;
+            while (u_char len = eat_one()) {
                 if (len > 63) {
-                    if (saved_ptr) {
+                    auto next_len = eat_one();
+
+                    if (++depth > max_depth) {
+                        oss << "rebootping_network_interface_dns_packets_overflow_decompression";
                         ++flat_metric().network_interface_dns_packets_overflow_decompression;
-                        // TODO: fix skipping DNS name with double compression
-                        // but be careful not to get stuck in a cycle
                         break;
                     }
-                    auto next_len = eat_one();
-                    saved_ptr = dns_ptr;
+
+                    if (!saved_ptr) { saved_ptr = dns_ptr; }
                     dns_ptr = dns_start + (len & 63) * 256 + next_len;
+
                     continue;
                 }
-                if (len > dns_end - dns_ptr) { break; }
+                if (dns_ptr + len > dns_end) { break; }
                 oss << std::string_view((const char *)(dns_ptr), len);
                 dns_ptr += len;
                 oss << '.';
@@ -78,8 +82,8 @@ struct network_interface_watcher {
             auto name = eat_qname();
             auto qtype = eat_short();
             auto qclass = eat_short();
-            /* ttl */ (eat_short() << 16) + eat_short();
-            /* rdlength */ eat_short();
+            auto ttl = (eat_short() << 16) + eat_short(); (void)ttl;
+            auto rdlength = eat_short(); (void)rdlength;
             if (qclass != (int)dns_qclass::DNS_QCLASS_INET) { break; }
             switch (qtype) {
             case (int)dns_qtype::DNS_QTYPE_A: {
