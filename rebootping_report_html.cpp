@@ -16,6 +16,32 @@ std::string_view interface_health_record_status_string(flat_timeshard_iterator_i
     if (record.health_last_bad_unixtime() == record.health_decision_unixtime()) { return "Bad"; }
     return "Impossible";
 }
+
+template <typename index_outer_type, typename index_unwrapper_type, typename formatter_type>
+void dump_html_table(std::ostream &out, std::string_view title, index_outer_type &&index_outer, index_unwrapper_type &&index_unwrapper,
+                     formatter_type &&formatter) {
+    std::unordered_map<std::decay_t<decltype(index_unwrapper(*index_outer.begin()).begin()->first)>, uint64_t> counts;
+    uint64_t total = 0;
+    for (auto &&outer : index_outer) {
+        for (auto &&[k, c] : index_unwrapper(outer)) {
+            counts[k] += c;
+            total += c;
+        }
+    }
+    if (!total) return;
+    std::vector<std::pair<typename decltype(counts)::key_type, uint64_t>> sorted;
+    for (auto &&i : counts) { sorted.push_back(i); }
+    std::stable_sort(sorted.begin(), sorted.end(), [](auto &&a, auto &&b) { return a.second > b.second; });
+    out << "<div class=dump_html_table_class><h2>" << escape_html(title) << " <span class=total_count>" << total << " total</span></h2>\n";
+    out << "<table>\n";
+    for (auto [k, v] : sorted) {
+        out << "<tr><td class=table_key_class>";
+        formatter(out, k);
+        out << "</td><td class=table_count_class>" << v << "</td></tr>\n";
+    }
+    out << "</table></div>\n";
+}
+
 } // namespace
 
 void report_html_dump(std::ostream &out) {
@@ -67,7 +93,7 @@ void report_html_dump(std::ostream &out) {
 </table>
 )";
     out << "<h1>Ping history</h1>\n";
-    out << "<div class=rebootping_js_eval>rebootping_record_graph({flat_schema: ";
+    out << "<script class=rebootping_record_graph_class>rebootping_record_graph({flat_schema: ";
     flat_record_schema_as_json<ping_record>(out);
     {
         auto store = read_locked_reference(ping_record_store());
@@ -83,7 +109,7 @@ void report_html_dump(std::ostream &out) {
         }
     }
     out << R"(], x: "ping_start_unixtime", y: "ping_recv_seconds", hue: ["ping_interface", "ping_dest_addr"]});
-</div>
+</script>
 )";
 
     std::unordered_map<macaddr, std::unordered_set<network_addr>> mac_to_addrs;
@@ -123,17 +149,18 @@ void report_html_dump(std::ostream &out) {
             out << "<p><a class=if_name href=\"" << escape_html(limited_pcap_dumper_filename(if_name, mac)) << "\">" << escape_html(if_name) << "</a> pcap</p>"
                 << std::endl;
         }
-        std::unordered_map<uint16_t, uint64_t> tcp_port_counts;
+
         // TODO allow const access to this kind of lookup so we can use a read lock
-        for (auto &&accepts : write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac)) {
-            for (auto &&[p, c] : accepts.tcp_ports().known_keys_and_counts()) { tcp_port_counts[p] += c; }
-        }
-        for (auto &&[p, c] : tcp_port_counts) {
-            out << "<p class=tcp_port><a href=\"http://" << escape_html(best_addr) << ":" << p << "\">port " << p << "</a> count " << c << "</p>\n";
-        }
-        // TODO udp ports
-        // TODO sort these counts
-        // TODO clean up duplicate code collecting counts and then printing them
+        dump_html_table(
+            out, "TCP port accepts", write_locked_reference(tcp_accept_record_store())->tcp_macaddr_index(mac),
+            [&](auto &&accepts) { return accepts.tcp_ports().known_keys_and_counts(); },
+            [&](auto &&out, uint16_t p) {
+                out << "<a class=tcp_port_accept href=\"http://" << escape_html(best_addr) << ":" << p << "\">port " << p << "</a>";
+            });
+        dump_html_table(
+            out, "UDP port recvs", write_locked_reference(udp_recv_record_store())->udp_macaddr_index(mac),
+            [&](auto &&recvs) { return recvs.udp_ports().known_keys_and_counts(); },
+            [&](auto &&out, uint16_t p) { out << "<span class=udp_port_recv>port " << p << "</span>"; });
         // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
         std::unordered_map<network_addr, uint64_t> connect_counts;
         for (auto &&connects : write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
@@ -150,7 +177,7 @@ void report_html_dump(std::ostream &out) {
 
         out << "</div>\n";
     }
-    out << "<script>rebootping_process_html()</script>\n</body>\n";
+    out << "\n</body>\n";
 }
 void report_html_dump() {
     auto out_filename = env("output_html_dump_filename", "index.html");
