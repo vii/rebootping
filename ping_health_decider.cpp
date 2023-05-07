@@ -92,7 +92,9 @@ struct ping_sender {
 };
 
 void ping_health_decider::ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping) {
-
+    if (last_ping > now) {
+        throw std::invalid_argument("last_ping must be in the past");
+    }
     for (auto const &[if_name, addrs] : known_ifs) {
         if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) { continue; }
         live_interfaces.insert(if_name);

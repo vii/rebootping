@@ -21,7 +21,10 @@ std::unordered_map<std::string, std::vector<sockaddr>> network_interfaces_manage
             continue;
         }
         if (dev_iter->flags & PCAP_IF_LOOPBACK) { continue; }
+        if (std::regex_match(dev_iter->name, std::regex(env("watch_interface_name_skip_regex", "^dbus.*")))) { continue; }
         if (!std::regex_match(dev_iter->name, std::regex(env("watch_interface_name_regex", ".*")))) { continue; }
+
+        known_ifs[dev_iter->name];
 
         for (pcap_addr *addr_iter = dev_iter->addresses; addr_iter; addr_iter = addr_iter->next) {
             if (addr_iter->addr->sa_family == AF_INET) { known_ifs[dev_iter->name].push_back(*addr_iter->addr); }
