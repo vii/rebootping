@@ -181,9 +181,9 @@ void report_html_dump(std::ostream &out) {
     {
         out << "<table class=rebootping_event_log_class>\n";
         read_locked_reference log(rebootping_event_log());
-        int event_log_entries = env("output_html_dump_event_log_entries", 1);
+        int event_log_entries = env("output_html_dump_event_log_entries", 20);
 
-        for (auto&& entry : log->timeshard_query()) {
+        for (auto&& entry : std::views::reverse(log->timeshard_query())) {
             if (event_log_entries-- < 0) { break ;}
             out << "<tr><td class=unixtime>" << entry.event_unixtime() << "</td><td class=event_name>"
                 << escape_html(entry.event_name())
