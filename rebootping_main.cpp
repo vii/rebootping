@@ -59,6 +59,7 @@ int main_actions() {
         std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
     }
     rebootping_event_log("rebootping_exit", str("global_exit_value ", global_exit_value));
+    report_html_dump();
     return global_exit_value;
 }
 

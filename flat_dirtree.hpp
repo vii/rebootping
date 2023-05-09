@@ -48,7 +48,7 @@ template <typename timeshard_schema_type> struct flat_dirtree {
         for (auto const &d : new_dirs) { insert_new_timeshard(d); }
     }
 
-    typename decltype(flat_timeshards)::iterator timeshard_iter_including(double unixtime) {
+    typename decltype(flat_timeshards)::const_iterator timeshard_iter_including(double unixtime) const {
         auto after = std::lower_bound(flat_timeshards.begin(), flat_timeshards.end(), unixtime, [](std::unique_ptr<timeshard_type> const &s, double unixtime) {
             return string_to_unixtime(s->flat_timeshard_name) < unixtime;
         });
@@ -140,7 +140,7 @@ template <typename timeshard_schema_type> struct flat_dirtree {
     }
 
     struct flat_dirtree_iterator {
-        using iterator_category = std::input_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
         using value_type = timeshard_iterator_type;
         using difference_type = long;
         using pointer = timeshard_iterator_type *;
@@ -178,14 +178,28 @@ template <typename timeshard_schema_type> struct flat_dirtree {
             }
             return *this;
         }
-        const flat_dirtree_iterator operator++(int) {
+        flat_dirtree_iterator &operator--() {
+            while (flat_iterator_index == 0) {
+                --outer_iterator;
+                flat_iterator_index = (*outer_iterator)->timeshard_header_ref().flat_timeshard_index_next;
+            }
+            --flat_iterator_index;
+            return *this;
+        }
+
+        flat_dirtree_iterator operator++(int) {
             auto old = *this;
             ++*this;
             return old;
         }
+        flat_dirtree_iterator operator--(int) {
+            auto old = *this;
+            --*this;
+            return old;
+        }
     };
 
-    auto timeshard_query(double start_unixtime = std::numeric_limits<double>::min(), double end_unixtime = std::numeric_limits<double>::max()) {
+    auto timeshard_query(double start_unixtime = std::numeric_limits<double>::min(), double end_unixtime = std::numeric_limits<double>::max()) const {
         auto begin = flat_dirtree_iterator{timeshard_iter_including(start_unixtime)};
         auto end = flat_dirtree_iterator{timeshard_iter_after(end_unixtime)};
 

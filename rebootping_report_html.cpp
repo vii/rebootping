@@ -4,6 +4,7 @@
 #include "escape_json.hpp"
 #include "ping_health_decider.hpp"
 #include "ping_record_store.hpp"
+#include "rebootping_event.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -176,6 +177,19 @@ void report_html_dump(std::ostream &out) {
         }
 
         out << "</div>\n";
+    }
+    {
+        out << "<table class=rebootping_event_log_class>\n";
+        read_locked_reference log(rebootping_event_log());
+        int event_log_entries = env("output_html_dump_event_log_entries", 1);
+
+        for (auto&& entry : log->timeshard_query()) {
+            if (event_log_entries-- < 0) { break ;}
+            out << "<tr><td class=unixtime>" << entry.event_unixtime() << "</td><td class=event_name>"
+                << escape_html(entry.event_name())
+            << "</td><td>" << escape_html(entry.event_message()) << "</td></tr>";
+        }
+        out << "\n</table>\n";
     }
     out << "\n</body>\n";
 }

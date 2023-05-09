@@ -39,6 +39,10 @@ target_link_libraries(rebootping_lib ${PCAP_LIBRARY} Threads::Threads stdc++fs)
 target_link_libraries(rebootping rebootping_lib)
 target_link_libraries(rebootping_test_lib rebootping_lib)
 
+add_executable(rebootping_event_test rebootping_event_test.cpp)
+add_test(NAME rebootping_event_test_name COMMAND rebootping_event_test)
+target_link_libraries(rebootping_event_test rebootping_test_lib)
+
 add_executable(flat_mfu_mru_test flat_mfu_mru_test.cpp)
 add_test(NAME flat_mfu_mru_test_name COMMAND flat_mfu_mru_test)
 target_link_libraries(flat_mfu_mru_test rebootping_test_lib)

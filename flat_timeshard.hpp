@@ -36,8 +36,7 @@ template <typename mmap_field, typename offset_type> struct flat_bytes_ptr {
 
     [[nodiscard]] inline operator std::string_view() const {
         auto offset = flat_bytes_offset.bytes_offset;
-        if (!offset) { return {}; }
-
+        if (!offset) { return std::string_view(""); }
         auto size = flat_field.smap_string_length(flat_bytes_offset.bytes_offset);
         return std::string_view(flat_field.smap_string_ptr(offset, size), size);
     }
@@ -128,19 +127,10 @@ struct flat_timeshard {
 
     uint64_t flat_timeshard_index_next() const { return timeshard_header_ref().flat_timeshard_index_next; }
 
-    void timeshard_reload_interned_strings() {
-        interned_strings.clear();
-        interned_strings_base = &flat_timeshard_main_mmap.mmap_cast<char>(0);
-        uint64_t offset = sizeof(flat_timeshard_header);
-        while (offset < timeshard_header_ref().flat_timeshard_bytes_start_next) {
-            auto s = (std::string_view)flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}};
-            interned_strings[s] = offset;
-            offset += s.size() + 1 + sizeof(smap_string_length(offset));
-        }
-    }
     inline char *smap_string_ptr(uint64_t offset, uint64_t size) {
         return &flat_timeshard_main_mmap.mmap_cast<char>(offset + sizeof(smap_string_length(offset)), size);
     }
+    inline uint64_t &smap_string_length(uint64_t offset) { return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset); }
 
     std::optional<flat_bytes_interned_tag> timeshard_lookup_interned_string(std::string_view s) {
         if (s.empty()) { return flat_bytes_interned_tag{0}; }
@@ -153,7 +143,7 @@ struct flat_timeshard {
         auto already = timeshard_lookup_interned_string(s);
         if (already.has_value()) { return already.value(); }
 
-        uint64_t alloc_bytes = s.size() + sizeof(smap_string_length(0)) + 1;
+        uint64_t alloc_bytes = sizeof(smap_string_length(0)) + s.size() + 1;
         auto offset = timeshard_allocate_bytes_prepare(alloc_bytes);
         smap_string_length(offset) = s.size();
         char *p = smap_string_ptr(offset, s.size() + 1);
@@ -165,9 +155,17 @@ struct flat_timeshard {
         return flat_bytes_interned_tag{offset};
     }
 
-    inline uint64_t &smap_string_length(uint64_t offset) { return flat_timeshard_main_mmap.mmap_cast<uint64_t>(offset); }
-
   private:
+    void timeshard_reload_interned_strings() {
+        interned_strings.clear();
+        interned_strings_base = &flat_timeshard_main_mmap.mmap_cast<char>(0);
+        uint64_t offset = sizeof(flat_timeshard_header);
+        while (offset < timeshard_header_ref().flat_timeshard_bytes_start_next) {
+            auto s = (std::string_view)flat_bytes_ptr<flat_timeshard, flat_bytes_interned_tag>{*this, flat_bytes_interned_tag{offset}};
+            interned_strings[s] = offset;
+            offset += s.size() + 1 + sizeof(smap_string_length(offset));
+        }
+    }
     uint64_t timeshard_allocate_bytes_prepare(uint64_t count) {
         auto cur = timeshard_header_ref().flat_timeshard_bytes_start_next;
         assert(cur >= sizeof(flat_timeshard_header));

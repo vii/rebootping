@@ -2,6 +2,7 @@
 
 #include "escape_json.hpp"
 #include "flat_timeshard.hpp"
+#include "flat_bytes_field.hpp" // otherwise may try to store std::string_view directly
 
 template <typename function, typename holder> inline decltype(auto) flat_record_apply_per_field(function &&f, holder &&record) {
     return std::apply([&](auto &&...field) { (f(field, record), ...); }, typename std::decay_t<holder>::flat_timeshard_schema_type().flat_schema_fields);
