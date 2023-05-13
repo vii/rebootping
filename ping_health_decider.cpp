@@ -145,6 +145,9 @@ void ping_health_decider::ping_external_addresses(std::unordered_map<std::string
 
     ping_sender sender;
     for (auto const &[if_name, addrs] : known_ifs) {
+        if (!notice_if_name(if_name)) {
+            continue;
+        }
         // send pings
         for (sockaddr const &src_sockaddr : addrs) {
             for (auto &&dest : target_ping_addrs) {
