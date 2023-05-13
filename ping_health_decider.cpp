@@ -43,6 +43,13 @@ struct ping_health_decider {
     std::unordered_set<std::string> decide_health(double now);
 
     void act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now = now_unixtime());
+
+    bool notice_if_name(const std::string& if_name) {
+        if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) { return false; }
+        live_interfaces.insert(if_name);
+        if_to_good_target[if_name]; // force creation
+        return true;
+    }
 };
 
 uint16_t icmp_checksum_endian_safe(void *buf, size_t length) {
@@ -96,9 +103,9 @@ void ping_health_decider::ping_external_addresses(std::unordered_map<std::string
         throw std::invalid_argument("last_ping must be in the past");
     }
     for (auto const &[if_name, addrs] : known_ifs) {
-        if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) { continue; }
-        live_interfaces.insert(if_name);
-        if_to_good_target[if_name]; // force creation
+        if (!notice_if_name(if_name)) {
+            continue;
+        }
 
         if (std::isnan(last_ping)) { continue; }
         for (auto &&dest : target_ping_addrs) {
@@ -154,6 +161,10 @@ void ping_health_decider::ping_external_addresses(std::unordered_map<std::string
 }
 
 std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
+    for (auto &&[interface, record] : read_locked_reference(interface_health_record_store())->health_interface_index()) {
+        notice_if_name(std::string(interface));
+    }
+
     std::unordered_set<std::string> healthy_interfaces;
     uint64_t best_count = 0;
     for (auto const &[k, v] : if_to_good_target) {
