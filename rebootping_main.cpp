@@ -56,7 +56,14 @@ int main_actions() {
             last_metric = std::move(current_metric);
         }
         last_heartbeat = now;
-        std::this_thread::sleep_for(std::chrono::duration<double>(env("ping_heartbeat_spacing_seconds", 1.0)));
+
+        double sleep_until = now_unixtime()+env("ping_heartbeat_spacing_seconds", 1.0);
+        double remaining;
+        while ((remaining = sleep_until-now_unixtime()) > 0 && !global_exit_value) {
+            time_t sec = static_cast<time_t>(remaining);
+            timespec ts = {.tv_sec=sec, .tv_nsec=static_cast<time_t>(1e9*(remaining-sec)) };
+            (void)nanosleep(&ts, nullptr);
+        }
     }
     rebootping_event_log("rebootping_exit", str("global_exit_value ", global_exit_value));
     report_html_dump();
@@ -72,6 +79,5 @@ int main() {
         rebootping_event_log("rebootping_exception", e.what());
         exit_value = 11;
     }
-    rebootping_event_log("rebootping_exit", str("global_exit_value ", exit_value));
     return exit_value;
 }
