@@ -160,7 +160,14 @@ void report_html_dump(std::ostream &out) {
             });
         dump_html_table(
             out, "UDP port recvs", write_locked_reference(udp_recv_record_store())->udp_macaddr_index(mac),
-            [&](auto &&recvs) { return recvs.udp_ports().known_keys_and_counts(); },
+            [&](auto &&recvs) {
+                auto ret = recvs.udp_ports().known_keys_and_counts();
+                std::erase_if(ret, [](const auto& item) {
+                    auto const& [key, value] = item;
+                    return value < env("html_minimum_udp_recvs_to_report", 5);
+                });
+                return ret;
+            },
             [&](auto &&out, uint16_t p) { out << "<span class=udp_port_recv>port " << p << "</span>"; });
 
         dump_html_table(
