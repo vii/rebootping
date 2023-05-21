@@ -162,19 +162,18 @@ void report_html_dump(std::ostream &out) {
             out, "UDP port recvs", write_locked_reference(udp_recv_record_store())->udp_macaddr_index(mac),
             [&](auto &&recvs) { return recvs.udp_ports().known_keys_and_counts(); },
             [&](auto &&out, uint16_t p) { out << "<span class=udp_port_recv>port " << p << "</span>"; });
-        // TODO write_locked_reference could be read by making a separate iterator that didn't allow adding
-        std::unordered_map<network_addr, uint64_t> connect_counts;
-        for (auto &&connects : write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac)) {
-            for (auto &&[a, c] : connects.ip_contact_addrs().known_keys_and_counts()) { connect_counts[a] += c; }
-        }
-        for (auto &&[a, c] : connect_counts) {
-            std::string address;
-            for (auto &&dns :
-                 write_locked_reference(dns_response_record_store())->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr = mac, .lookup_addr = a})) {
-                address = dns.dns_response_hostname().operator std::string_view();
-            }
-            out << "<p class=contacted_ip>" << escape_html(address) << " " << in_addr{a} << " count " << c << "</p>\n";
-        }
+
+        dump_html_table(
+            out, "Contacted servers with addresses used", write_locked_reference(ip_contact_record_store())->ip_contact_macaddr_index(mac),
+            [&](auto &&connects) { return connects.ip_contact_addrs().known_keys_and_counts(); },
+            [&](auto &&out, auto &&addr) {
+                std::string address;
+                for (auto &&dns : write_locked_reference(dns_response_record_store())
+                                      ->dns_macaddr_lookup_index(macaddr_ip_lookup{.lookup_macaddr = mac, .lookup_addr = addr})) {
+                    address = dns.dns_response_hostname().operator std::string_view();
+                }
+                out << "<span class=contacted_ip>" << escape_html(address) << " " << in_addr{addr} << "</span>\n";
+            });
 
         out << "</div>\n";
     }
