@@ -178,6 +178,8 @@ void report_html_dump(std::ostream &out) {
         out << "</div>\n";
     }
     {
+        out << "<div class=rebootping_event_log_class>";
+        out << "<h1>Rebootping events</h1>\n";
         out << "<table class=rebootping_event_log_class>\n";
         read_locked_reference log(rebootping_event_log());
         int event_log_entries = env("output_html_dump_event_log_entries", 20);
@@ -189,6 +191,7 @@ void report_html_dump(std::ostream &out) {
             << "</td><td>" << escape_html(entry.event_message()) << "</td></tr>";
         }
         out << "\n</table>\n";
+        out << "\n</div>";
     }
     out << "\n</body>\n";
 }
