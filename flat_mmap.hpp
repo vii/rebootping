@@ -10,6 +10,7 @@
 #include <string>
 #include <unistd.h>
 #include <utility>
+#include <cstdint>
 
 struct flat_mmap_settings {
     bool mmap_readonly = false;

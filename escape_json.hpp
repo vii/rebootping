@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <cstdint>
 
 template <typename value_type> struct escape_json_tag {
     value_type escape_value;
