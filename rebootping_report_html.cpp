@@ -67,6 +67,7 @@ void report_html_dump(std::ostream &out) {
             <th>Interface last good</th>
             <th>Interface last bad</th>
             <th>Interface last decision</th>
+            <th>Last good ping address</th>
         </tr>
     </thead>
     <tbody>
@@ -85,6 +86,8 @@ void report_html_dump(std::ostream &out) {
                 << record.health_last_bad_unixtime() << R"(</td>
             <td class=unixtime>)"
                 << record.health_decision_unixtime() << R"(</td>
+            <td class=interface_health_address>)"
+                << escape_html(record.health_last_good_addr()) << R"(</td>
         </tr>
 )";
         }
@@ -162,8 +165,8 @@ void report_html_dump(std::ostream &out) {
             out, "UDP port recvs", write_locked_reference(udp_recv_record_store())->udp_macaddr_index(mac),
             [&](auto &&recvs) {
                 auto ret = recvs.udp_ports().known_keys_and_counts();
-                std::erase_if(ret, [](const auto& item) {
-                    auto const& [key, value] = item;
+                std::erase_if(ret, [](const auto &item) {
+                    auto const &[key, value] = item;
                     return value < env("html_minimum_udp_recvs_to_report", 5);
                 });
                 return ret;
@@ -191,11 +194,10 @@ void report_html_dump(std::ostream &out) {
         read_locked_reference log(rebootping_event_log());
         int event_log_entries = env("output_html_dump_event_log_entries", 20);
 
-        for (auto&& entry : std::views::reverse(log->timeshard_query())) {
-            if (event_log_entries-- < 0) { break ;}
-            out << "<tr><td class=unixtime>" << entry.event_unixtime() << "</td><td class=event_name>"
-                << escape_html(entry.event_name())
-            << "</td><td>" << escape_html(entry.event_message()) << "</td></tr>";
+        for (auto &&entry : std::views::reverse(log->timeshard_query())) {
+            if (event_log_entries-- < 0) { break; }
+            out << "<tr><td class=unixtime>" << entry.event_unixtime() << "</td><td class=event_name>" << escape_html(entry.event_name()) << "</td><td>"
+                << escape_html(entry.event_message()) << "</td></tr>";
         }
         out << "\n</table>\n";
         out << "\n</div>";

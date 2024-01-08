@@ -25,6 +25,7 @@ struct ping_health_decider {
     void ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping);
 
     std::unordered_map<std::string, std::unordered_set<network_addr>> if_to_good_target;
+    std::unordered_map<std::string, network_addr> if_to_last_good_src;
     std::unordered_map<std::string, uint64_t> good_targets_to_if_count;
     std::unordered_set<std::string> live_interfaces;
     std::unordered_map<std::string, flat_timeshard_iterator_interface_health_record> if_records;
@@ -44,7 +45,7 @@ struct ping_health_decider {
 
     void act_on_healthy_interfaces(std::unordered_set<std::string> &&healthy_interfaces, double now = now_unixtime());
 
-    bool notice_if_name(const std::string& if_name) {
+    bool notice_if_name(const std::string &if_name) {
         if (!std::regex_match(if_name, std::regex(env("ping_interface_name_regex", ".*")))) { return false; }
         live_interfaces.insert(if_name);
         if_to_good_target[if_name]; // force creation
@@ -83,8 +84,9 @@ struct ping_sender {
     int ping_socket = CALL_ERRNO_MINUS_1(socket, AF_INET, SOCK_RAW, (int)ip_protocol::ICMP);
 
     void send_ping(sockaddr const &src_addr, sockaddr const &dest_addr, std::string const &if_name) const {
-        CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(), if_name.size());
+        // bind to INADDR_ANY is defined to bind to all interfaces, so bind to IP before setting the device
         CALL_ERRNO_MINUS_1(bind, ping_socket, &src_addr, sizeof(src_addr));
+        CALL_ERRNO_MINUS_1(setsockopt, ping_socket, SOL_SOCKET, SO_BINDTODEVICE, if_name.c_str(), if_name.size());
 
         auto packet = build_icmp_packet_and_store_record(src_addr, dest_addr, if_name);
 
@@ -99,13 +101,9 @@ struct ping_sender {
 };
 
 void ping_health_decider::ping_external_addresses(std::unordered_map<std::string, std::vector<sockaddr>> const &known_ifs, double now, double last_ping) {
-    if (last_ping > now) {
-        throw std::invalid_argument("last_ping must be in the past");
-    }
+    if (last_ping > now) { throw std::invalid_argument("last_ping must be in the past"); }
     for (auto const &[if_name, addrs] : known_ifs) {
-        if (!notice_if_name(if_name)) {
-            continue;
-        }
+        if (!notice_if_name(if_name)) { continue; }
 
         if (std::isnan(last_ping)) { continue; }
         for (auto &&dest : target_ping_addrs) {
@@ -129,6 +127,7 @@ void ping_health_decider::ping_external_addresses(std::unordered_map<std::string
                     auto ping_record = timeshard->timeshard_iterator_at(last_ping_slot);
                     if (ping_record.ping_start_unixtime() >= last_ping) {
                         if_to_good_target[if_name].insert(dest);
+                        if_to_last_good_src[if_name] = ping_record.ping_src_addr();
                         ping_was_lost = false;
                     }
                 }
@@ -145,9 +144,7 @@ void ping_health_decider::ping_external_addresses(std::unordered_map<std::string
 
     ping_sender sender;
     for (auto const &[if_name, addrs] : known_ifs) {
-        if (!notice_if_name(if_name)) {
-            continue;
-        }
+        if (!notice_if_name(if_name)) { continue; }
         // send pings
         for (sockaddr const &src_sockaddr : addrs) {
             for (auto &&dest : target_ping_addrs) {

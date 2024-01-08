@@ -27,6 +27,7 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
         record.ping_sent_seconds() = std::nan("");
         record.ping_recv_seconds() = std::nan("");
         record.ping_dest_addr() = dst_network_addr;
+        record.ping_src_addr() = network_addr_from_sockaddr(src_addr);
         record.ping_interface() = ping_if;
         if_tag = record.ping_interface().flat_bytes_offset;
         record.ping_cookie() = ping_payload.ping_cookie;

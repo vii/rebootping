@@ -35,7 +35,7 @@ void ping_record_store_prepare(sockaddr const &src_addr, sockaddr const &dst_add
 void ping_record_store_process_one_icmp_packet(const struct pcap_pkthdr *h, const u_char *bytes);
 
 define_flat_record(ping_record, (double, ping_start_unixtime), (double, ping_sent_seconds), (double, ping_recv_seconds), (network_addr, ping_dest_addr),
-                   (flat_bytes_interned_ptr, ping_interface), (uint64_t, ping_cookie), );
+                   (network_addr, ping_src_addr), (flat_bytes_interned_ptr, ping_interface), (uint64_t, ping_cookie), );
 
 locked_reference<ping_record> &ping_record_store();
 
