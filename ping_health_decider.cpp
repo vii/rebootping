@@ -190,6 +190,7 @@ std::unordered_set<std::string> ping_health_decider::decide_health(double now) {
             } else {
                 r.health_last_bad_unixtime() = now;
             }
+            if (auto i = if_to_last_good_src.find(interface); i != if_to_last_good_src.end()) { r.health_last_good_addr() = i->second; }
         };
         auto new_fields = [&](flat_timeshard_iterator_interface_health_record &r) {
             if (last_record) {

@@ -33,7 +33,7 @@ void dump_html_table(std::ostream &out, std::string_view title, index_outer_type
     std::vector<std::pair<typename decltype(counts)::key_type, uint64_t>> sorted;
     for (auto &&i : counts) { sorted.push_back(i); }
     std::stable_sort(sorted.begin(), sorted.end(), [](auto &&a, auto &&b) { return a.second > b.second; });
-    out << "<div class=dump_html_table_class><h2>" << escape_html(title) << " <span class=total_count>" << total << " total</span></h2>\n";
+    out << "<div class=dump_html_table_class><h3>" << escape_html(title) << " <span class=total_count>" << total << " total</span></h3>\n";
     out << "<table>\n";
     for (auto [k, v] : sorted) {
         out << "<tr><td class=table_key_class>";
@@ -87,7 +87,7 @@ void report_html_dump(std::ostream &out) {
             <td class=unixtime>)"
                 << record.health_decision_unixtime() << R"(</td>
             <td class=interface_health_address>)"
-                << escape_html(record.health_last_good_addr()) << R"(</td>
+                << escape_html(sockaddr_from_network_addr(record.health_last_good_addr())) << R"(</td>
         </tr>
 )";
         }
